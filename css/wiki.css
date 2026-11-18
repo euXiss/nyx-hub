@@ -82,8 +82,8 @@
 .nyx-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(5, 5, 8, 0.85);
-  backdrop-filter: blur(4px);
+  background: rgba(10, 3, 5, 0.88);
+  backdrop-filter: blur(5px);
   display: flex;
   align-items: center;
   justify-content: center;

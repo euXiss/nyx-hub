@@ -3,45 +3,39 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NyX • Compêndio & Fichas</title>
+  <title>NyX</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="css/theme.css">
   <link rel="stylesheet" href="css/wiki.css">
 </head>
 <body class="min-h-screen flex flex-col">
 
-  <!-- Cabeçalho Principal -->
-  <header class="border-b border-[var(--borda-fina)] bg-[var(--bg-surface)] py-4 px-6 flex flex-wrap items-center justify-between gap-4 shadow-lg">
-    <div class="flex items-center space-x-3">
-      <div class="w-10 h-10 rounded bg-[var(--vinho-escuro)] border border-[var(--dourado)] flex items-center justify-center font-bold text-xl text-[var(--dourado)] shadow-inner">
-        N
-      </div>
-      <div>
-        <h1 class="text-2xl font-bold tracking-wider text-[var(--dourado)]">NyX</h1>
-        <p class="text-xs text-[var(--texto-mutado)] font-mono-code">Detetives: Ouro de Sangue • Sistema New Age</p>
-      </div>
-    </div>
+  <!-- Cabeçalho Principal Centralizado -->
+  <header class="border-b border-[var(--borda-fina)] bg-[var(--bg-surface)] backdrop-blur-md pt-7 pb-5 px-6 flex flex-col items-center justify-center text-center gap-4 shadow-2xl">
+    
+    <!-- Título Principal Animado -->
+    <h1 class="nyx-hero-title">NyX</h1>
 
-    <!-- Barra de Busca Global (Omnisearch) -->
-    <div class="flex-1 max-w-xl min-w-[240px]">
+    <!-- Barra de Busca Global Centralizada -->
+    <div class="w-full max-w-xl">
       <div class="relative">
         <input type="text" id="omnisearch-input" placeholder="Pesquisar talentos, locais, NPCs ou regras no NyX..." 
-          class="w-full bg-[var(--bg-card)] border border-[var(--borda-fina)] rounded-lg px-4 py-2 text-sm text-[var(--texto-principal)] focus:outline-none focus:border-[var(--dourado)] transition">
+          class="w-full bg-[#120608] border border-[var(--borda-fina)] rounded-full px-5 py-2.5 text-sm text-center text-[var(--texto-principal)] placeholder-[var(--texto-mutado)] focus:outline-none focus:border-[var(--dourado)] focus:shadow-[0_0_16px_rgba(212,175,55,0.2)] transition">
       </div>
     </div>
 
-    <!-- Status de Login -->
-    <div id="auth-status" class="text-sm font-mono-code text-[var(--dourado-claro)]">
+    <!-- Status de Login Centralizado -->
+    <div id="auth-status" class="text-xs font-mono-code text-[var(--dourado-claro)] bg-black/40 border border-[var(--borda-fina)] px-4 py-1.5 rounded-full">
       Verificando sessão...
     </div>
   </header>
 
-  <!-- Navegação de Abas -->
-  <nav class="bg-[var(--bg-surface)] border-b border-[var(--borda-fina)] px-6 flex space-x-6 text-sm font-semibold overflow-x-auto">
-    <button data-tab="wiki" class="tab-btn py-3 border-b-2 border-[var(--dourado)] text-[var(--dourado)] whitespace-nowrap transition">Wiki & Cidades</button>
-    <button data-tab="talentos" class="tab-btn py-3 border-b-2 border-transparent text-[var(--texto-mutado)] hover:text-[var(--texto-principal)] whitespace-nowrap transition">Catálogo de Talentos</button>
-    <button data-tab="ficha" class="tab-btn py-3 border-b-2 border-transparent text-[var(--texto-mutado)] hover:text-[var(--texto-principal)] whitespace-nowrap transition">Ficha do Personagem</button>
-    <button data-tab="mestre" class="tab-btn py-3 border-b-2 border-transparent text-[var(--vinho)] hover:text-red-400 whitespace-nowrap transition">Painel do Mestre</button>
+  <!-- Navegação de Abas Centralizada -->
+  <nav class="bg-[#100407]/90 backdrop-blur-md border-b border-[var(--borda-fina)] px-6 flex justify-center flex-wrap gap-6 sm:gap-8 text-sm font-semibold">
+    <button data-tab="wiki" class="tab-btn py-3 border-b-2 border-[var(--dourado)] text-[var(--dourado)] whitespace-nowrap">Wiki & Cidades</button>
+    <button data-tab="talentos" class="tab-btn py-3 border-b-2 border-transparent text-[var(--texto-mutado)] hover:text-white whitespace-nowrap">Catálogo de Talentos</button>
+    <button data-tab="ficha" class="tab-btn py-3 border-b-2 border-transparent text-[var(--texto-mutado)] hover:text-white whitespace-nowrap">Ficha do Personagem</button>
+    <button data-tab="mestre" class="tab-btn py-3 border-b-2 border-transparent text-[var(--vinho)] hover:text-[var(--dourado-claro)] whitespace-nowrap">Painel do Mestre</button>
   </nav>
 
   <!-- Conteúdo Dinâmico -->
@@ -82,7 +76,7 @@
         mountWikiView(viewContainer);
       } else {
         viewContainer.innerHTML = `
-          <div class="bg-[var(--bg-card)] border border-[var(--borda-fina)] rounded-xl p-6 shadow-xl">
+          <div class="bg-[var(--bg-card)] border border-[var(--borda-fina)] rounded-xl p-6 shadow-xl text-center">
             <h2 class="text-xl font-bold text-[var(--dourado)] mb-2">Módulo: ${tabName.toUpperCase()}</h2>
             <p class="text-sm text-[var(--texto-mutado)]">Sessão autenticada. Pronto para plugar este módulo na próxima etapa.</p>
           </div>
