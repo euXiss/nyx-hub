@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NyX • Compêndio & Fichas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/theme.css">
+  <link rel="stylesheet" href="css/wiki.css">
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Cabeçalho Principal -->
+  <header class="border-b border-[var(--borda-fina)] bg-[var(--bg-surface)] py-4 px-6 flex flex-wrap items-center justify-between gap-4 shadow-lg">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded bg-[var(--vinho-escuro)] border border-[var(--dourado)] flex items-center justify-center font-bold text-xl text-[var(--dourado)] shadow-inner">
+        N
+      </div>
+      <div>
+        <h1 class="text-2xl font-bold tracking-wider text-[var(--dourado)]">NyX</h1>
+        <p class="text-xs text-[var(--texto-mutado)] font-mono-code">Detetives: Ouro de Sangue • Sistema New Age</p>
+      </div>
+    </div>
+
+    <!-- Barra de Busca Global (Omnisearch) -->
+    <div class="flex-1 max-w-xl min-w-[240px]">
+      <div class="relative">
+        <input type="text" id="omnisearch-input" placeholder="Pesquisar talentos, locais, NPCs ou regras no NyX..." 
+          class="w-full bg-[var(--bg-card)] border border-[var(--borda-fina)] rounded-lg px-4 py-2 text-sm text-[var(--texto-principal)] focus:outline-none focus:border-[var(--dourado)] transition">
+      </div>
+    </div>
+
+    <!-- Status de Login -->
+    <div id="auth-status" class="text-sm font-mono-code text-[var(--dourado-claro)]">
+      Verificando sessão...
+    </div>
+  </header>
+
+  <!-- Navegação de Abas -->
+  <nav class="bg-[var(--bg-surface)] border-b border-[var(--borda-fina)] px-6 flex space-x-6 text-sm font-semibold overflow-x-auto">
+    <button data-tab="wiki" class="tab-btn py-3 border-b-2 border-[var(--dourado)] text-[var(--dourado)] whitespace-nowrap transition">Wiki & Cidades</button>
+    <button data-tab="talentos" class="tab-btn py-3 border-b-2 border-transparent text-[var(--texto-mutado)] hover:text-[var(--texto-principal)] whitespace-nowrap transition">Catálogo de Talentos</button>
+    <button data-tab="ficha" class="tab-btn py-3 border-b-2 border-transparent text-[var(--texto-mutado)] hover:text-[var(--texto-principal)] whitespace-nowrap transition">Ficha do Personagem</button>
+    <button data-tab="mestre" class="tab-btn py-3 border-b-2 border-transparent text-[var(--vinho)] hover:text-red-400 whitespace-nowrap transition">Painel do Mestre</button>
+  </nav>
+
+  <!-- Conteúdo Dinâmico -->
+  <main class="flex-1 p-6 max-w-7xl w-full mx-auto">
+    <div id="view-container"></div>
+  </main>
+
+  <!-- Contêiner para Modais -->
+  <div id="modal-root"></div>
+
+  <script type="module">
+    import { initAuth, renderLoginScreen } from './js/modules/auth.js';
+    import { mountWikiView } from './js/modules/wiki-cms.js';
+
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const viewContainer = document.getElementById('view-container');
+    let currentTab = 'wiki';
+    let currentUser = null;
+
+    function switchTab(tabName) {
+      currentTab = tabName;
+      tabButtons.forEach(btn => {
+        const isActive = btn.dataset.tab === tabName;
+        btn.classList.toggle('border-[var(--dourado)]', isActive);
+        btn.classList.toggle('text-[var(--dourado)]', isActive);
+        btn.classList.toggle('border-transparent', !isActive);
+        if (btn.dataset.tab !== 'mestre') {
+          btn.classList.toggle('text-[var(--texto-mutado)]', !isActive);
+        }
+      });
+
+      if (!currentUser) {
+        renderLoginScreen(viewContainer);
+        return;
+      }
+
+      if (tabName === 'wiki') {
+        mountWikiView(viewContainer);
+      } else {
+        viewContainer.innerHTML = `
+          <div class="bg-[var(--bg-card)] border border-[var(--borda-fina)] rounded-xl p-6 shadow-xl">
+            <h2 class="text-xl font-bold text-[var(--dourado)] mb-2">Módulo: ${tabName.toUpperCase()}</h2>
+            <p class="text-sm text-[var(--texto-mutado)]">Sessão autenticada. Pronto para plugar este módulo na próxima etapa.</p>
+          </div>
+        `;
+      }
+    }
+
+    tabButtons.forEach(btn => {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+
+    initAuth(
+      (user) => {
+        currentUser = user;
+        switchTab(currentTab);
+      },
+      () => {
+        currentUser = null;
+        renderLoginScreen(viewContainer);
+      }
+    );
+  </script>
+</body>
+</html>

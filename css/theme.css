@@ -1,0 +1,61 @@
+/* css/theme.css */
+@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+:root {
+  --bg-base: #09090c;
+  --bg-surface: #121218;
+  --bg-card: #1a1a24;
+  --vinho: #C62828;
+  --vinho-escuro: #6e1119;
+  --dourado: #D4AF37;
+  --dourado-claro: #f3e5ab;
+  --texto-principal: #e2e2e9;
+  --texto-mutado: #9494a0;
+  --borda-fina: rgba(212, 175, 55, 0.2);
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--texto-principal);
+  font-family: 'Lora', serif;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+.font-mono-code {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Bordas e detalhes em Dourado e Vinho */
+.border-gold {
+  border-color: var(--dourado);
+}
+
+.bg-wine-gradient {
+  background: linear-gradient(135deg, var(--vinho-escuro) 0%, #1a0507 100%);
+}
+
+.text-gold {
+  color: var(--dourado);
+}
+
+.text-wine {
+  color: var(--vinho);
+}
+
+/* Barras de rolagem personalizadas */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-base);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--vinho-escuro);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--vinho);
+}

@@ -1,0 +1,135 @@
+/* css/wiki.css */
+.wiki-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.25rem;
+}
+
+.wiki-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--borda-fina);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.wiki-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--dourado);
+  box-shadow: 0 8px 24px rgba(198, 40, 40, 0.18);
+}
+
+.wiki-card-cover {
+  width: 100%;
+  height: 220px;
+  object-fit: contain;
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--borda-fina);
+  background: linear-gradient(125deg, #09090c 0%, #22080d 35%, #2d0b12 50%, #22080d 65%, #09090c 100%);
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.7);
+}
+
+.wiki-reader-media-wrap {
+  width: 100%;
+  background: linear-gradient(125deg, #09090c 0%, #22080d 35%, #2d0b12 50%, #22080d 65%, #09090c 100%);
+  box-shadow: inset 0 0 32px rgba(0, 0, 0, 0.75);
+  border-bottom: 1px solid var(--borda-fina);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.wiki-reader-media {
+  max-width: 100%;
+  max-height: 460px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 0.375rem;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.65);
+}
+
+.wiki-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.55rem;
+  border-radius: 0.25rem;
+  background-color: rgba(110, 17, 25, 0.65);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  color: var(--dourado-claro);
+}
+
+.wiki-excerpt {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-line;
+}
+
+.wiki-full-text {
+  white-space: pre-line;
+  line-height: 1.75;
+}
+
+.nyx-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 5, 8, 0.85);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 50;
+}
+
+/* Sistema de Tags */
+.nyx-tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  background-color: rgba(212, 175, 55, 0.1);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  color: var(--dourado-claro);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.nyx-tag-pill:hover,
+.nyx-tag-pill.active {
+  background-color: var(--vinho-escuro);
+  border-color: var(--dourado);
+  color: var(--dourado);
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.2);
+}
+
+.nyx-tag-selectable {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 9999px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--borda-fina);
+  color: var(--texto-mutado);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.nyx-tag-selectable.selected {
+  background-color: var(--vinho-escuro);
+  border-color: var(--dourado);
+  color: var(--dourado-claro);
+}
