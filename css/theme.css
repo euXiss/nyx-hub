@@ -2,16 +2,16 @@
 @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;700&display=swap');
 
 :root {
-  --bg-base: #080304;
-  --bg-surface: rgba(18, 6, 9, 0.86);
-  --bg-card: #17080b;
+  --bg-base: #060102;
+  --bg-surface: rgba(16, 4, 7, 0.88);
+  --bg-card: #150609;
   --vinho: #C62828;
   --vinho-escuro: #680e16;
   --dourado: #D4AF37;
   --dourado-claro: #f7e7b4;
   --texto-principal: #f5f0ec;
   --texto-mutado: #b8a9a5;
-  --borda-fina: rgba(212, 175, 55, 0.24);
+  --borda-fina: rgba(212, 175, 55, 0.25);
 }
 
 * {
@@ -19,7 +19,7 @@
 }
 
 body {
-  background: linear-gradient(165deg, #060203 0%, #160408 42%, #26070d 76%, #090304 100%);
+  background: linear-gradient(170deg, #050102 0%, #120306 45%, #1a0408 80%, #050102 100%);
   background-attachment: fixed;
   color: var(--texto-principal);
   font-family: 'Lora', serif;
@@ -34,63 +34,72 @@ body::before,
 body::after {
   content: "";
   position: fixed;
-  inset: -20%;
+  inset: -18%;
   pointer-events: none;
   z-index: 0;
 }
 
 body::before {
   background:
-    radial-gradient(circle at 22% 28%, rgba(165, 22, 34, 0.24) 0%, transparent 48%),
-    radial-gradient(circle at 78% 70%, rgba(110, 12, 22, 0.28) 0%, transparent 52%);
-  filter: blur(48px);
-  animation: nyxMistDriftOne 20s ease-in-out infinite alternate;
+    radial-gradient(ellipse 52% 38% at 22% 28%, rgba(205, 32, 46, 0.38) 0%, rgba(125, 14, 24, 0.16) 46%, transparent 72%),
+    radial-gradient(ellipse 48% 42% at 78% 72%, rgba(175, 22, 36, 0.35) 0%, rgba(95, 10, 18, 0.14) 50%, transparent 75%);
+  filter: blur(34px);
+  animation: nyxMistDriftOne 14s ease-in-out infinite alternate;
 }
 
 body::after {
   background:
-    radial-gradient(circle at 72% 22%, rgba(198, 40, 40, 0.16) 0%, transparent 45%),
-    radial-gradient(circle at 30% 80%, rgba(212, 175, 55, 0.06) 0%, transparent 50%);
-  filter: blur(62px);
-  animation: nyxMistDriftTwo 26s ease-in-out infinite alternate;
+    radial-gradient(ellipse 46% 34% at 74% 24%, rgba(218, 42, 52, 0.28) 0%, transparent 66%),
+    radial-gradient(ellipse 56% 40% at 28% 76%, rgba(155, 18, 30, 0.34) 0%, transparent 70%),
+    radial-gradient(circle at 50% 50%, rgba(212, 175, 55, 0.05) 0%, transparent 55%);
+  filter: blur(44px);
+  animation: nyxMistDriftTwo 18s ease-in-out infinite alternate;
 }
 
 @keyframes nyxMistDriftOne {
   0% {
-    transform: translate3d(-3%, -2%, 0) scale(1);
-    opacity: 0.75;
+    transform: translate3d(-5%, -3%, 0) scale(1);
+    opacity: 0.78;
   }
   50% {
-    transform: translate3d(2%, 3%, 0) scale(1.07);
+    transform: translate3d(4%, 4%, 0) scale(1.08);
     opacity: 1;
   }
   100% {
-    transform: translate3d(4%, -3%, 0) scale(1.02);
-    opacity: 0.8;
+    transform: translate3d(6%, -4%, 0) scale(1.03);
+    opacity: 0.85;
   }
 }
 
 @keyframes nyxMistDriftTwo {
   0% {
-    transform: translate3d(3%, 2%, 0) scale(1.05);
-    opacity: 0.65;
+    transform: translate3d(5%, 3%, 0) scale(1.06);
+    opacity: 0.72;
   }
   50% {
-    transform: translate3d(-3%, -2%, 0) scale(0.98);
-    opacity: 0.95;
+    transform: translate3d(-5%, -3%, 0) scale(0.98);
+    opacity: 0.98;
   }
   100% {
-    transform: translate3d(-2%, 4%, 0) scale(1.06);
-    opacity: 0.7;
+    transform: translate3d(-3%, 5%, 0) scale(1.07);
+    opacity: 0.78;
   }
 }
 
-/* Mantém conteúdo acima da névoa */
-header,
-nav,
+/* Hierarquia de camadas acima da névoa */
+header {
+  position: relative;
+  z-index: 30;
+}
+
+nav {
+  position: relative;
+  z-index: 20;
+}
+
 main {
   position: relative;
-  z-index: 1;
+  z-index: 10;
 }
 
 /* Título Principal NyX com Brilho Dourado e Respiração */
@@ -99,14 +108,14 @@ main {
   font-size: clamp(2.6rem, 5vw, 3.75rem);
   font-weight: 700;
   letter-spacing: 0.22em;
-  padding-left: 0.22em; /* compensa o tracking para centralização exata */
+  padding-left: 0.22em;
   line-height: 1.1;
   background: linear-gradient(110deg, #b88924 0%, #f8e8b0 32%, #D4AF37 52%, #ffffff 68%, #c9972c 100%);
   background-size: 220% auto;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  filter: drop-shadow(0 4px 18px rgba(198, 40, 40, 0.45));
+  filter: drop-shadow(0 4px 18px rgba(198, 40, 40, 0.5));
   animation: nyxTitleShimmer 7s ease-in-out infinite alternate, nyxTitleFloat 5s ease-in-out infinite;
   transition: transform 0.3s ease, filter 0.3s ease;
   user-select: none;
@@ -154,7 +163,6 @@ button:not(:disabled):active {
   transform: translateY(0) scale(0.98);
 }
 
-/* Abas de navegação com crescimento sutil sem sombra exagerada */
 nav .tab-btn:not(:disabled):hover {
   transform: translateY(-1px) scale(1.04);
   box-shadow: none;
@@ -186,7 +194,7 @@ nav .tab-btn:not(:disabled):hover {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #070203;
+  background: #050102;
 }
 ::-webkit-scrollbar-thumb {
   background: var(--vinho-escuro);
