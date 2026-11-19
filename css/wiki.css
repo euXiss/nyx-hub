@@ -133,3 +133,440 @@
   border-color: var(--dourado);
   color: var(--dourado-claro);
 }
+
+/* Camadas de Segredo (Mestre vs Jogador) */
+.nyx-secret-box {
+  margin-top: 1.5rem;
+  padding: 1.1rem 1.25rem;
+  border-radius: 0.75rem;
+  border: 1px dashed var(--vinho);
+  background: linear-gradient(135deg, rgba(104, 14, 22, 0.32) 0%, rgba(18, 5, 8, 0.92) 100%);
+}
+
+.nyx-secret-box.revealed {
+  border-style: solid;
+  border-color: var(--dourado);
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.12) 0%, rgba(22, 6, 9, 0.92) 100%);
+}
+
+/* Links estilo Obsidian [[Wiki]] */
+.nyx-wikilink {
+  display: inline;
+  color: var(--dourado);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: rgba(212, 175, 55, 0.45);
+  text-underline-offset: 3px;
+  background: rgba(212, 175, 55, 0.08);
+  padding: 0 0.28rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.nyx-wikilink:hover {
+  color: #ffffff;
+  background: var(--vinho-escuro);
+  text-decoration-color: var(--dourado);
+  transform: none !important;
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.25);
+}
+
+.nyx-wikilink-missing {
+  display: inline;
+  color: #e57373;
+  font-weight: 600;
+  border-bottom: 1px dashed rgba(198, 40, 40, 0.7);
+  padding: 0 0.2rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.nyx-wikilink-missing:hover {
+  color: var(--dourado-claro);
+  background: rgba(104, 14, 22, 0.35);
+  transform: none !important;
+}
+
+/* Autocompletar [[ no Editor */
+.nyx-autocomplete-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  background: #140508;
+  border: 1px solid var(--dourado);
+  border-radius: 0.65rem;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.85);
+  max-height: 210px;
+  overflow-y: auto;
+  z-index: 60;
+}
+
+.nyx-autocomplete-item {
+  width: 100%;
+  text-align: left;
+  padding: 0.55rem 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.12);
+  font-size: 0.82rem;
+  color: var(--texto-principal);
+}
+
+.nyx-autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+.nyx-autocomplete-item:hover,
+.nyx-autocomplete-item.active {
+  background: var(--vinho-escuro);
+  color: var(--dourado-claro);
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Rodapé de Conexões Reversas (Backlinks) */
+.nyx-backlinks-box {
+  margin-top: 1.75rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--borda-fina);
+}
+
+/* Resultados do Omnisearch */
+#omnisearch-results {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: #130407;
+  border: 1px solid var(--dourado);
+  border-radius: 0.9rem;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.9), 0 0 20px rgba(198, 40, 40, 0.2);
+  max-height: 380px;
+  overflow-y: auto;
+  z-index: 60;
+  text-align: left;
+}
+
+.nyx-omni-item {
+  width: 100%;
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.14);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.nyx-omni-item:last-child {
+  border-bottom: none;
+}
+
+.nyx-omni-item:hover,
+.nyx-omni-item.active {
+  background: linear-gradient(90deg, rgba(104, 14, 22, 0.85) 0%, rgba(26, 6, 10, 0.95) 100%);
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Garante que modais fiquem sempre acima do Canvas em Tela Cheia */
+.nyx-modal-backdrop {
+  z-index: 80 !important;
+}
+
+/* Oculta cabeçalho e abas quando o Canvas estiver expandido */
+body.nyx-canvas-fullscreen header,
+body.nyx-canvas-fullscreen nav {
+  display: none !important;
+}
+
+/* Quadro de Investigação (Canvas Colaborativo) */
+.nyx-canvas-wrapper {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--borda-fina);
+  border-radius: 0.85rem;
+  overflow: hidden;
+  background: #0b0305;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85);
+}
+
+.nyx-canvas-wrapper.expanded {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 45;
+  border-radius: 0;
+  border: none;
+}
+
+.nyx-canvas-stage {
+  position: relative;
+  width: 100%;
+  height: 70vh;
+  min-height: 480px;
+  overflow: hidden;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  background-color: #090204;
+  background-image:
+    radial-gradient(circle at 50% 50%, rgba(110, 14, 22, 0.22) 0%, transparent 72%),
+    radial-gradient(rgba(212, 175, 55, 0.14) 1px, transparent 1px);
+  background-size: 100% 100%, 28px 28px;
+}
+
+.nyx-canvas-wrapper.expanded .nyx-canvas-stage {
+  flex: 1;
+  height: 100%;
+}
+
+.nyx-canvas-stage.panning {
+  cursor: grabbing;
+}
+
+.nyx-canvas-world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+}
+
+.nyx-canvas-svg {
+  position: absolute;
+  top: -5000px;
+  left: -5000px;
+  width: 10000px;
+  height: 10000px;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.nyx-edge-hit {
+  stroke: transparent;
+  stroke-width: 18px;
+  fill: none;
+  cursor: pointer;
+  pointer-events: stroke;
+}
+
+.nyx-edge-line {
+  fill: none;
+  stroke-width: 2.3px;
+  pointer-events: none;
+  transition: stroke-width 0.15s ease;
+}
+
+.nyx-edge-hit:hover + .nyx-edge-line {
+  stroke-width: 4.2px;
+}
+
+/* Cartão de Pista no Mural */
+.nyx-board-card {
+  position: absolute;
+  width: 265px;
+  background: linear-gradient(165deg, #19070b 0%, #100306 100%);
+  border: 1px solid var(--borda-fina);
+  border-radius: 0.75rem;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.78);
+  cursor: grab;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.nyx-board-card:hover {
+  border-color: var(--dourado);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.9), 0 0 16px rgba(212, 175, 55, 0.16);
+}
+
+.nyx-board-card.dragging {
+  cursor: grabbing;
+  z-index: 30;
+  box-shadow: 0 22px 44px rgba(0, 0, 0, 0.95), 0 0 22px rgba(198, 40, 40, 0.35);
+}
+
+.nyx-board-card.link-target-hover {
+  border-color: var(--dourado) !important;
+  box-shadow: 0 0 0 2px var(--dourado), 0 0 26px rgba(212, 175, 55, 0.45) !important;
+}
+
+/* Pontos Laterais de Conexão estilo Obsidian */
+.nyx-port {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border-radius: 9999px;
+  background: #1a060a;
+  border: 2px solid var(--dourado);
+  box-shadow: 0 0 0 2px #090204;
+  opacity: 0;
+  cursor: crosshair;
+  z-index: 25;
+  transition: opacity 0.15s ease, transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.nyx-board-card:hover .nyx-port,
+.nyx-canvas-stage.connecting-wire .nyx-port {
+  opacity: 0.92;
+}
+
+.nyx-port:hover {
+  opacity: 1 !important;
+  background: var(--dourado);
+  box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.32);
+}
+
+.nyx-port-top {
+  top: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.nyx-port-top:hover {
+  transform: translateX(-50%) scale(1.22);
+}
+
+.nyx-port-bottom {
+  bottom: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.nyx-port-bottom:hover {
+  transform: translateX(-50%) scale(1.22);
+}
+
+.nyx-port-left {
+  left: -7px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.nyx-port-left:hover {
+  transform: translateY(-50%) scale(1.22);
+}
+
+.nyx-port-right {
+  right: -7px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.nyx-port-right:hover {
+  transform: translateY(-50%) scale(1.22);
+}
+
+/* Gradiente lateral nas imagens (Cartão e Janela Flutuante) */
+.nyx-board-card-media-wrap {
+  position: relative;
+  background: #080203;
+  border-bottom: 1px solid var(--borda-fina);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.nyx-board-card-media-wrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    #080203 0%,
+    rgba(8, 2, 3, 0.55) 7%,
+    transparent 18%,
+    transparent 82%,
+    rgba(8, 2, 3, 0.55) 93%,
+    #080203 100%
+  );
+}
+
+.nyx-board-card-media {
+  max-height: 165px;
+  width: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 12%, #000 88%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 12%, #000 88%, transparent 100%);
+}
+
+.nyx-board-reader-media-wrap {
+  position: relative;
+  width: 100%;
+  background: #080203;
+  border-bottom: 1px solid var(--borda-fina);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.nyx-board-reader-media-wrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    var(--bg-surface) 0%,
+    rgba(18, 5, 8, 0.6) 8%,
+    transparent 20%,
+    transparent 80%,
+    rgba(18, 5, 8, 0.6) 92%,
+    var(--bg-surface) 100%
+  );
+}
+
+.nyx-board-reader-media {
+  max-height: 330px;
+  width: 100%;
+  object-fit: contain;
+  display: block;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 14%, #000 86%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 14%, #000 86%, transparent 100%);
+}
+
+.nyx-board-pin {
+  width: 11px;
+  height: 11px;
+  border-radius: 9999px;
+  border: 2px solid #090204;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+  flex-shrink: 0;
+}
+
+/* Destaque do ponto exato de conexão ao arrastar um fio */
+.nyx-port.port-target-hover {
+  opacity: 1 !important;
+  background: var(--dourado) !important;
+  border-color: #ffffff !important;
+  box-shadow: 0 0 0 5px rgba(212, 175, 55, 0.45), 0 0 14px var(--dourado) !important;
+}
+
+.nyx-port-top.port-target-hover,
+.nyx-port-bottom.port-target-hover {
+  transform: translateX(-50%) scale(1.35) !important;
+}
+
+.nyx-port-left.port-target-hover,
+.nyx-port-right.port-target-hover {
+  transform: translateY(-50%) scale(1.35) !important;
+}
+
+/* Pontas interativas dos fios para segurar e arrastar */
+.nyx-edge-endpoint {
+  fill: #120407;
+  stroke-width: 2px;
+  cursor: grab;
+  pointer-events: all;
+  opacity: 0.85;
+  transition: r 0.15s ease, opacity 0.15s ease;
+}
+
+.nyx-edge-group:hover .nyx-edge-endpoint {
+  opacity: 1;
+}

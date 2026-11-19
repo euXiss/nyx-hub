@@ -6,16 +6,65 @@ import {
 import {
   initTagsSync, getAllTags, openTagsModal, openTagFilterModal, DISTRITOS_SUGESTOES
 } from './tags-manager.js';
+import { isMaster } from './roles-manager.js';
 
 let wikiEntries = [];
 let activeCategory = 'Todos';
 let activeTag = null;
 let unsubscribeWiki = null;
+let wikiChangeListeners = [];
 
 const CATEGORIES = ['Todos', 'Locais', 'NPCs', 'Facções', 'Regras'];
+const CONFIG_DOC_IDS = ['nyx_config_tags', 'nyx_config_roles'];
 
 function escapeHtml(str = '') {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function stripLinkBrackets(str = '') {
+  return String(str).replace(/\[\[([^\[\]\n]+)\]\]/g, '$1');
+}
+
+function renderLinkedText(rawText = '') {
+  const escaped = escapeHtml(rawText);
+  return escaped.replace(/\[\[([^\[\]\n]+)\]\]/g, (_, innerEscaped) => {
+    const cleanTarget = innerEscaped.trim();
+    const found = wikiEntries.find(
+      w => escapeHtml(w.title).trim().toLowerCase() === cleanTarget.toLowerCase()
+    );
+    if (found) {
+      return `<button type="button" class="nyx-wikilink" data-open-wikilink="${found.id}" title="Abrir registro: ${escapeHtml(found.title)}">${cleanTarget}</button>`;
+    }
+    return `<button type="button" class="nyx-wikilink-missing" data-create-wikilink="${cleanTarget}" title="Registro ainda não existe — clique para criar">${cleanTarget}</button>`;
+  });
+}
+
+function getBacklinksFor(targetItem) {
+  if (!targetItem || !targetItem.title) return [];
+  const targetTitleLower = targetItem.title.trim().toLowerCase();
+  const masterMode = isMaster();
+
+  const containsReference = (text = '') => {
+    const regex = /\[\[([^\[\]\n]+)\]\]/g;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      if (match[1].trim().toLowerCase() === targetTitleLower) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  return wikiEntries.filter(other => {
+    if (other.id === targetItem.id) return false;
+    const inPublic = containsReference(other.content || '');
+    const inVisibleSecret = (masterMode || other.secretRevealed) && containsReference(other.masterSecret || '');
+    return inPublic || inVisibleSecret;
+  });
 }
 
 function compressImageToWebP(file, maxWidth = 850, quality = 0.78) {
@@ -39,8 +88,42 @@ function compressImageToWebP(file, maxWidth = 850, quality = 0.78) {
   });
 }
 
+export function onWikiEntriesUpdated(cb) {
+  wikiChangeListeners.push(cb);
+}
+
 export function getWikiEntries() {
   return wikiEntries;
+}
+
+export function initWikiSync() {
+  if (unsubscribeWiki) return;
+
+  unsubscribeWiki = onSnapshot(collection(db, 'wikis'), (snapshot) => {
+    wikiEntries = snapshot.docs
+      .filter(d => !CONFIG_DOC_IDS.includes(d.id) && d.data().nyxType !== 'canvas_card')
+      .map(d => ({ id: d.id, ...d.data() }));
+    wikiEntries.sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
+    if (document.getElementById('wiki-list')) renderCards();
+    wikiChangeListeners.forEach(cb => cb(wikiEntries));
+  });
+}
+
+export async function toggleWikiSecret(id) {
+  const item = wikiEntries.find(w => w.id === id);
+  if (!item || !isMaster()) return;
+  const nextState = !item.secretRevealed;
+  item.secretRevealed = nextState;
+  await updateDoc(doc(db, 'wikis', id), {
+    secretRevealed: nextState,
+    updatedAt: serverTimestamp()
+  });
+}
+
+export function refreshWikiUI() {
+  if (document.getElementById('wiki-list')) {
+    renderCards();
+  }
 }
 
 export function mountWikiView(container) {
@@ -70,19 +153,10 @@ export function mountWikiView(container) {
     if (document.getElementById('tag-filter-control')) renderTagFilterButton();
   });
 
+  initWikiSync();
   renderFilters();
   renderTagFilterButton();
   renderCards();
-
-  if (!unsubscribeWiki) {
-    unsubscribeWiki = onSnapshot(collection(db, 'wikis'), (snapshot) => {
-      wikiEntries = snapshot.docs
-        .filter(d => d.id !== 'nyx_config_tags')
-        .map(d => ({ id: d.id, ...d.data() }));
-      wikiEntries.sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
-      if (document.getElementById('wiki-list')) renderCards();
-    });
-  }
 }
 
 function renderFilters() {
@@ -146,6 +220,21 @@ function renderTagFilterButton() {
   }
 }
 
+function renderSecretBadge(item) {
+  const hasSecret = item.masterSecret && item.masterSecret.trim().length > 0;
+  if (!hasSecret) return '';
+
+  if (isMaster()) {
+    return item.secretRevealed
+      ? `<span class="text-[10px] font-mono-code px-2 py-0.5 rounded bg-amber-950/60 border border-[var(--dourado)] text-[var(--dourado)]">👁️ Revelado</span>`
+      : `<span class="text-[10px] font-mono-code px-2 py-0.5 rounded bg-[var(--vinho-escuro)] border border-red-500/40 text-red-200">🔒 Segredo</span>`;
+  }
+
+  return item.secretRevealed
+    ? `<span class="text-[10px] font-mono-code px-2 py-0.5 rounded bg-amber-950/60 border border-[var(--dourado)] text-[var(--dourado)]">✨ Revelado</span>`
+    : '';
+}
+
 function renderCards() {
   const listEl = document.getElementById('wiki-list');
   if (!listEl) return;
@@ -172,11 +261,14 @@ function renderCards() {
       <div class="p-5 flex-1 flex flex-col justify-between">
         <div>
           <div class="flex items-center justify-between gap-2 mb-2">
-            <span class="wiki-badge">${escapeHtml(item.category || 'Geral')}</span>
-            ${item.subtitle ? `<span class="text-xs text-[var(--texto-mutado)] italic">${escapeHtml(item.subtitle)}</span>` : ''}
+            <div class="flex items-center gap-1.5">
+              <span class="wiki-badge">${escapeHtml(item.category || 'Geral')}</span>
+              ${renderSecretBadge(item)}
+            </div>
+            ${item.subtitle ? `<span class="text-xs text-[var(--texto-mutado)] italic truncate max-w-[140px]">${escapeHtml(item.subtitle)}</span>` : ''}
           </div>
           <h3 class="text-lg font-bold text-[var(--dourado)] group-hover:text-[var(--dourado-claro)] transition mb-2">${escapeHtml(item.title)}</h3>
-          <p class="text-sm text-[var(--texto-principal)] opacity-90 wiki-excerpt mb-3">${escapeHtml(item.content)}</p>
+          <p class="text-sm text-[var(--texto-principal)] opacity-90 wiki-excerpt mb-3">${escapeHtml(stripLinkBrackets(item.content))}</p>
           ${Array.isArray(item.tags) && item.tags.length > 0 ? `
             <div class="flex flex-wrap gap-1.5 mt-2">
               ${item.tags.map(tag => `<button type="button" data-jump-tag="${escapeHtml(tag)}" class="nyx-tag-pill">#${escapeHtml(tag)}</button>`).join('')}
@@ -188,7 +280,7 @@ function renderCards() {
           <span class="text-[var(--texto-mutado)] group-hover:text-[var(--dourado)] transition">Clique para abrir</span>
           <div class="space-x-3">
             <button type="button" data-edit="${item.id}" class="text-[var(--texto-mutado)] hover:text-[var(--dourado-claro)]">Editar</button>
-            <button type="button" data-del="${item.id}" class="text-red-400 hover:text-red-300">Excluir</button>
+            ${isMaster() ? `<button type="button" data-del="${item.id}" class="text-red-400 hover:text-red-300">Excluir</button>` : ''}
           </div>
         </div>
       </div>
@@ -226,6 +318,11 @@ export function openReaderModal(id) {
   const item = wikiEntries.find(w => w.id === id);
   if (!item) return;
 
+  const masterMode = isMaster();
+  const hasSecret = item.masterSecret && item.masterSecret.trim().length > 0;
+  const canSeeSecret = hasSecret && (masterMode || item.secretRevealed);
+  const backlinks = getBacklinksFor(item);
+
   const modalRoot = document.getElementById('modal-root');
   modalRoot.innerHTML = `
     <div class="nyx-modal-backdrop" id="reader-backdrop">
@@ -243,11 +340,71 @@ export function openReaderModal(id) {
               ${item.tags.map(tag => `<button type="button" data-reader-tag="${escapeHtml(tag)}" class="nyx-tag-pill">#${escapeHtml(tag)}</button>`).join('')}
             </div>
           ` : ''}
-          <div class="text-base text-[var(--texto-principal)] wiki-full-text">${escapeHtml(item.content)}</div>
+          <div class="text-base text-[var(--texto-principal)] wiki-full-text">${renderLinkedText(item.content)}</div>
+
+          ${canSeeSecret ? `
+            <div class="nyx-secret-box ${item.secretRevealed ? 'revealed' : ''}">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <span class="text-xs font-mono-code font-bold uppercase tracking-wider ${item.secretRevealed ? 'text-[var(--dourado)]' : 'text-red-300'}">
+                  ${item.secretRevealed ? '✨ Informação Revelada na Mesa' : '🔒 Anotação Oculta do Mestre (Invisível aos Jogadores)'}
+                </span>
+                ${masterMode ? `
+                  <button type="button" id="btn-toggle-reader-secret"
+                    class="px-3 py-1 rounded-lg border text-xs font-bold ${
+                      item.secretRevealed
+                        ? 'bg-[#17080b] border-[var(--borda-fina)] text-[var(--texto-mutado)] hover:text-white'
+                        : 'bg-[var(--vinho-escuro)] border-[var(--dourado)] text-[var(--dourado-claro)]'
+                    }">
+                    ${item.secretRevealed ? 'Ocultar Novamente' : '👁️ Revelar Segredo aos Jogadores'}
+                  </button>
+                ` : ''}
+              </div>
+              <div class="text-sm text-[var(--texto-principal)] wiki-full-text">${renderLinkedText(item.masterSecret)}</div>
+            </div>
+          ` : ''}
+
+          ${backlinks.length > 0 ? `
+            <div class="nyx-backlinks-box">
+              <p class="text-[11px] font-mono-code uppercase tracking-wider text-[var(--texto-mutado)] mb-2.5">
+                🔗 Mencionado em (${backlinks.length})
+              </p>
+              <div class="flex flex-wrap gap-2">
+                ${backlinks.map(ref => `
+                  <button type="button" data-open-backlink="${ref.id}"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#120407] hover:bg-[var(--vinho-escuro)] border border-[var(--borda-fina)] hover:border-[var(--dourado)] text-xs text-[var(--dourado-claro)]">
+                    <span class="text-[10px] font-mono-code text-[var(--texto-mutado)]">${escapeHtml(ref.category)}</span>
+                    <span class="font-bold">${escapeHtml(ref.title)}</span>
+                  </button>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
         </div>
       </div>
     </div>
   `;
+
+  modalRoot.querySelectorAll('[data-open-wikilink]').forEach(btn => {
+    btn.addEventListener('click', () => openReaderModal(btn.dataset.openWikilink));
+  });
+
+  modalRoot.querySelectorAll('[data-create-wikilink]').forEach(btn => {
+    btn.addEventListener('click', () => openEditorModal(null, btn.dataset.createWikilink));
+  });
+
+  modalRoot.querySelectorAll('[data-open-backlink]').forEach(btn => {
+    btn.addEventListener('click', () => openReaderModal(btn.dataset.openBacklink));
+  });
+
+  const toggleBtn = document.getElementById('btn-toggle-reader-secret');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', async () => {
+      toggleBtn.disabled = true;
+      toggleBtn.innerText = 'Atualizando...';
+      await toggleWikiSecret(item.id);
+      openReaderModal(item.id);
+    });
+  }
 
   modalRoot.querySelectorAll('[data-reader-tag]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -266,11 +423,110 @@ export function openReaderModal(id) {
   });
 }
 
-function openEditorModal(existing = null) {
+export function attachWikiLinkAutocomplete(textarea) {
+  if (!textarea || !textarea.parentElement) return;
+  textarea.parentElement.classList.add('relative');
+
+  const menu = document.createElement('div');
+  menu.className = 'nyx-autocomplete-menu hidden';
+  textarea.parentElement.appendChild(menu);
+
+  let activeIdx = 0;
+  let matches = [];
+  let triggerStart = -1;
+
+  const hideMenu = () => {
+    menu.classList.add('hidden');
+    matches = [];
+    triggerStart = -1;
+  };
+
+  const applySelection = (title) => {
+    if (triggerStart === -1) return;
+    const cursor = textarea.selectionStart;
+    const before = textarea.value.slice(0, triggerStart);
+    const after = textarea.value.slice(cursor);
+    const insertion = `[[${title}]]`;
+    textarea.value = before + insertion + after;
+    const nextPos = before.length + insertion.length;
+    textarea.focus();
+    textarea.setSelectionRange(nextPos, nextPos);
+    hideMenu();
+  };
+
+  const renderMenu = () => {
+    if (matches.length === 0) {
+      hideMenu();
+      return;
+    }
+    menu.innerHTML = matches.map((entry, idx) => `
+      <button type="button" class="nyx-autocomplete-item ${idx === activeIdx ? 'active' : ''}" data-ac-idx="${idx}">
+        <span class="font-bold truncate">${escapeHtml(entry.title)}</span>
+        <span class="text-[10px] font-mono-code text-[var(--texto-mutado)] shrink-0">${escapeHtml(entry.category || 'Wiki')}</span>
+      </button>
+    `).join('');
+    menu.classList.remove('hidden');
+
+    menu.querySelectorAll('[data-ac-idx]').forEach(btn => {
+      btn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        const chosen = matches[Number(btn.dataset.acIdx)];
+        if (chosen) applySelection(chosen.title);
+      });
+    });
+  };
+
+  textarea.addEventListener('input', () => {
+    const cursor = textarea.selectionStart;
+    const textBefore = textarea.value.slice(0, cursor);
+    const match = textBefore.match(/\[\[([^\[\]\n]*)$/);
+
+    if (!match) {
+      hideMenu();
+      return;
+    }
+
+    triggerStart = cursor - match[0].length;
+    const query = match[1].trim().toLowerCase();
+    matches = wikiEntries
+      .filter(w => !query || (w.title || '').toLowerCase().includes(query))
+      .slice(0, 7);
+    activeIdx = 0;
+    renderMenu();
+  });
+
+  textarea.addEventListener('keydown', (e) => {
+    if (menu.classList.contains('hidden') || matches.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      activeIdx = (activeIdx + 1) % matches.length;
+      renderMenu();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      activeIdx = (activeIdx - 1 + matches.length) % matches.length;
+      renderMenu();
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      applySelection(matches[activeIdx].title);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      hideMenu();
+    }
+  });
+
+  textarea.addEventListener('blur', () => {
+    setTimeout(hideMenu, 140);
+  });
+}
+
+export function openEditorModal(existing = null, prefillTitle = '') {
   const modalRoot = document.getElementById('modal-root');
   let currentImage = existing?.imageUrl || '';
   let selectedTags = Array.isArray(existing?.tags) ? [...existing.tags] : [];
   const availableTags = getAllTags();
+  const masterMode = isMaster();
+  const initialTitle = existing?.title || prefillTitle || '';
 
   modalRoot.innerHTML = `
     <div class="nyx-modal-backdrop" id="editor-backdrop">
@@ -300,7 +556,7 @@ function openEditorModal(existing = null) {
 
           <div>
             <label class="block text-xs text-[var(--dourado-claro)] mb-1">Título do Registro</label>
-            <input type="text" id="wiki-title" required value="${escapeHtml(existing?.title || '')}" placeholder="Ex: O Vitruviano ou Diovan Larkin"
+            <input type="text" id="wiki-title" required value="${escapeHtml(initialTitle)}" placeholder="Ex: O Vitruviano ou Diovan Larkin"
               class="w-full bg-[var(--bg-card)] text-[var(--texto-principal)] border border-[var(--borda-fina)] rounded-lg px-3 py-2 text-sm focus:border-[var(--dourado)] focus:outline-none">
           </div>
 
@@ -329,10 +585,29 @@ function openEditorModal(existing = null) {
           </div>
 
           <div>
-            <label class="block text-xs text-[var(--dourado-claro)] mb-1">Descrição e Informações</label>
-            <textarea id="wiki-content" rows="5" required placeholder="Escreva a história, características ou aparência..."
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs text-[var(--dourado-claro)]">Descrição Pública (Visível para todos)</label>
+              <span class="text-[10px] font-mono-code text-[var(--texto-mutado)]">Digite <strong class="text-[var(--dourado)]">[[</strong> para conectar wikis</span>
+            </div>
+            <textarea id="wiki-content" rows="4" required placeholder="Escreva a história, características ou use [[Nome da Wiki]] para criar links..."
               class="w-full bg-[var(--bg-card)] text-[var(--texto-principal)] border border-[var(--borda-fina)] rounded-lg p-3 text-sm focus:border-[var(--dourado)] focus:outline-none">${escapeHtml(existing?.content || '')}</textarea>
           </div>
+
+          ${masterMode ? `
+            <div class="p-3.5 rounded-xl border border-dashed border-[var(--vinho)] bg-[#100305] space-y-2.5">
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-bold text-[var(--dourado)]">🔒 Segredo / Anotação do Mestre</label>
+                <label class="flex items-center gap-1.5 text-xs text-[var(--dourado-claro)] cursor-pointer">
+                  <input type="checkbox" id="wiki-secret-revealed" ${existing?.secretRevealed ? 'checked' : ''} class="accent-[#D4AF37]">
+                  Já revelado aos jogadores
+                </label>
+              </div>
+              <div class="relative">
+                <textarea id="wiki-master-secret" rows="3" placeholder="Intenções ocultas, segredos de clã ou pistas com [[Links]]..."
+                  class="w-full bg-[var(--bg-card)] text-[var(--texto-principal)] border border-[var(--borda-fina)] rounded-lg p-3 text-sm focus:border-[var(--dourado)] focus:outline-none">${escapeHtml(existing?.masterSecret || '')}</textarea>
+              </div>
+            </div>
+          ` : ''}
 
           <div class="flex justify-end gap-3 pt-2">
             <button type="button" id="cancel-editor" class="px-4 py-2 rounded-lg text-xs text-[var(--texto-mutado)] hover:text-white">Cancelar</button>
@@ -344,6 +619,11 @@ function openEditorModal(existing = null) {
       </div>
     </div>
   `;
+
+  attachWikiLinkAutocomplete(document.getElementById('wiki-content'));
+  if (masterMode) {
+    attachWikiLinkAutocomplete(document.getElementById('wiki-master-secret'));
+  }
 
   modalRoot.querySelectorAll('[data-pick-tag]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -387,6 +667,14 @@ function openEditorModal(existing = null) {
     saveBtn.disabled = true;
     saveBtn.innerText = 'Salvando...';
 
+    const masterSecretVal = masterMode
+      ? document.getElementById('wiki-master-secret').value.trim()
+      : (existing?.masterSecret || '');
+
+    const secretRevealedVal = masterMode
+      ? document.getElementById('wiki-secret-revealed').checked
+      : (existing?.secretRevealed || false);
+
     const payload = {
       category: document.getElementById('wiki-cat').value,
       subtitle: document.getElementById('wiki-sub').value.trim(),
@@ -394,6 +682,8 @@ function openEditorModal(existing = null) {
       tags: selectedTags,
       imageUrl: currentImage,
       content: document.getElementById('wiki-content').value.trim(),
+      masterSecret: masterSecretVal,
+      secretRevealed: secretRevealedVal,
       updatedAt: serverTimestamp()
     };
 

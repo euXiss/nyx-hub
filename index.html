@@ -19,8 +19,9 @@
     <!-- Barra de Busca + Botão do Usuário lado a lado -->
     <div class="w-full max-w-2xl flex flex-col sm:flex-row items-center justify-center gap-3">
       <div class="relative flex-1 w-full">
-        <input type="text" id="omnisearch-input" placeholder="Pesquisar talentos, locais, NPCs ou regras no NyX..." 
+        <input type="text" id="omnisearch-input" autocomplete="off" placeholder="Pesquisar no NyX (ou pressione '/')..." 
           class="w-full bg-[#120507] border border-[var(--borda-fina)] rounded-full px-5 py-2.5 text-sm text-[var(--texto-principal)] placeholder-[var(--texto-mutado)] focus:outline-none focus:border-[var(--dourado)] focus:shadow-[0_0_16px_rgba(212,175,55,0.2)] transition">
+        <div id="omnisearch-results" class="hidden"></div>
       </div>
 
       <!-- Menu Suspenso do Usuário -->
@@ -32,6 +33,8 @@
   <!-- Navegação de Abas Centralizada -->
   <nav class="bg-[#100306]/90 backdrop-blur-md border-b border-[var(--borda-fina)] px-6 flex justify-center flex-wrap gap-6 sm:gap-8 text-sm font-semibold">
     <button data-tab="wiki" class="tab-btn py-3 border-b-2 border-[var(--dourado)] text-[var(--dourado)] whitespace-nowrap">Wiki & Cidades</button>
+    <button data-tab="grafo" class="tab-btn py-3 border-b-2 border-transparent text-[var(--texto-mutado)] hover:text-white whitespace-nowrap">Visualização em Gráfico</button>
+    <button data-tab="canvas" class="tab-btn py-3 border-b-2 border-transparent text-[var(--texto-mutado)] hover:text-white whitespace-nowrap">Quadro de Pistas</button>
     <button data-tab="talentos" class="tab-btn py-3 border-b-2 border-transparent text-[var(--texto-mutado)] hover:text-white whitespace-nowrap">Catálogo de Talentos</button>
     <button data-tab="ficha" class="tab-btn py-3 border-b-2 border-transparent text-[var(--texto-mutado)] hover:text-white whitespace-nowrap">Ficha do Personagem</button>
     <button data-tab="mestre" class="tab-btn py-3 border-b-2 border-transparent text-[var(--vinho)] hover:text-[var(--dourado-claro)] whitespace-nowrap">Painel do Mestre</button>
@@ -47,14 +50,25 @@
 
   <script type="module">
     import { initAuth, renderLoginScreen } from './js/modules/auth.js';
-    import { mountWikiView } from './js/modules/wiki-cms.js';
+    import { initRolesSync, onRoleUpdated, mountMasterPanel } from './js/modules/roles-manager.js';
+    import {
+      initWikiSync, mountWikiView, getWikiEntries, toggleWikiSecret, refreshWikiUI, onWikiEntriesUpdated
+    } from './js/modules/wiki-cms.js';
+    import { initOmnisearch } from './js/modules/omnisearch.js';
+    import { mountGraphView, unmountGraphView, refreshGraphView } from './js/modules/graph-view.js';
+    import { mountCanvasBoard, unmountCanvasBoard } from './js/modules/canvas-board.js';
 
     const tabButtons = document.querySelectorAll('.tab-btn');
     const viewContainer = document.getElementById('view-container');
     let currentTab = 'wiki';
     let currentUser = null;
 
+    initOmnisearch(() => Boolean(currentUser));
+
     function switchTab(tabName) {
+      if (currentTab === 'grafo' && tabName !== 'grafo') unmountGraphView();
+      if (currentTab === 'canvas' && tabName !== 'canvas') unmountCanvasBoard();
+
       currentTab = tabName;
       tabButtons.forEach(btn => {
         const isActive = btn.dataset.tab === tabName;
@@ -67,12 +81,22 @@
       });
 
       if (!currentUser) {
+        unmountGraphView();
+        unmountCanvasBoard();
         renderLoginScreen(viewContainer);
         return;
       }
 
       if (tabName === 'wiki') {
         mountWikiView(viewContainer);
+      } else if (tabName === 'grafo') {
+        mountGraphView(viewContainer);
+      } else if (tabName === 'canvas') {
+        mountCanvasBoard(viewContainer);
+      } else if (tabName === 'mestre') {
+        mountMasterPanel(viewContainer, getWikiEntries(), async (wikiId) => {
+          await toggleWikiSecret(wikiId);
+        });
       } else {
         viewContainer.innerHTML = `
           <div class="bg-[var(--bg-card)] border border-[var(--borda-fina)] rounded-xl p-6 shadow-xl text-center">
@@ -87,13 +111,39 @@
       btn.addEventListener('click', () => switchTab(btn.dataset.tab));
     });
 
+    onRoleUpdated(() => {
+      if (!currentUser) return;
+      if (currentTab === 'wiki') refreshWikiUI();
+      if (currentTab === 'grafo') refreshGraphView();
+      if (currentTab === 'mestre') {
+        mountMasterPanel(viewContainer, getWikiEntries(), async (wikiId) => {
+          await toggleWikiSecret(wikiId);
+        });
+      }
+    });
+
+    onWikiEntriesUpdated(() => {
+      if (!currentUser) return;
+      if (currentTab === 'grafo') refreshGraphView();
+      if (currentTab === 'mestre') {
+        mountMasterPanel(viewContainer, getWikiEntries(), async (wikiId) => {
+          await toggleWikiSecret(wikiId);
+        });
+      }
+    });
+
     initAuth(
       (user) => {
         currentUser = user;
+        initRolesSync(user);
+        initWikiSync();
         switchTab(currentTab);
       },
       () => {
         currentUser = null;
+        initRolesSync(null);
+        unmountGraphView();
+        unmountCanvasBoard();
         renderLoginScreen(viewContainer);
       }
     );

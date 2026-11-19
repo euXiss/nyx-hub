@@ -7,6 +7,9 @@ import {
   signOut,
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getCurrentUserRole, onRoleUpdated } from './roles-manager.js';
+
+let cachedUser = null;
 
 function escapeHtml(str = '') {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -23,6 +26,7 @@ function getUserDisplayName(user) {
 }
 
 function renderUserMenu(user) {
+  cachedUser = user;
   const statusEl = document.getElementById('auth-status');
   if (!statusEl) return;
 
@@ -36,21 +40,28 @@ function renderUserMenu(user) {
   }
 
   const username = getUserDisplayName(user);
+  const role = getCurrentUserRole();
+  const isM = role === 'mestre';
 
   statusEl.innerHTML = `
     <div class="relative inline-block text-left" id="user-menu-wrapper">
       <button type="button" id="user-menu-trigger"
         class="flex items-center gap-2 bg-[#160609] hover:bg-[var(--vinho-escuro)] border border-[var(--borda-fina)] hover:border-[var(--dourado)] text-[var(--dourado-claro)] text-xs font-mono-code px-4 py-2.5 rounded-full shadow">
-        <span class="w-2 h-2 rounded-full bg-[var(--dourado)]"></span>
+        <span class="w-2 h-2 rounded-full ${isM ? 'bg-[var(--dourado)]' : 'bg-[var(--vinho)]'}"></span>
         <span class="max-w-[140px] truncate font-bold">${escapeHtml(username)}</span>
         <span class="text-[10px] opacity-80">▾</span>
       </button>
 
       <div id="user-menu-dropdown"
-        class="hidden absolute right-0 mt-2 w-48 rounded-xl bg-[#160609] border border-[var(--dourado)] shadow-2xl py-1.5 z-50 overflow-hidden">
+        class="hidden absolute right-0 mt-2 w-52 rounded-xl bg-[#160609] border border-[var(--dourado)] shadow-2xl py-1.5 z-50 overflow-hidden">
         <div class="px-3.5 py-2 border-b border-[var(--borda-fina)]">
-          <p class="text-[10px] font-mono-code uppercase tracking-wider text-[var(--texto-mutado)]">Conectado como</p>
-          <p class="text-xs text-[var(--texto-principal)] truncate mt-0.5">${escapeHtml(user.email || username)}</p>
+          <div class="flex items-center justify-between gap-1">
+            <p class="text-[10px] font-mono-code uppercase tracking-wider text-[var(--texto-mutado)]">Cargo na Mesa</p>
+            <span class="text-[10px] font-mono-code font-bold ${isM ? 'text-[var(--dourado)]' : 'text-[var(--dourado-claro)]'}">
+              ${isM ? '👑 Mestre' : '🕵️ Jogador'}
+            </span>
+          </div>
+          <p class="text-xs text-[var(--texto-principal)] truncate mt-1">${escapeHtml(user.email || username)}</p>
         </div>
         <button type="button" id="btn-switch-account"
           class="w-full text-left px-3.5 py-2.5 text-xs text-[var(--dourado-claro)] hover:bg-[var(--vinho-escuro)] flex items-center gap-2 rounded-none">
@@ -82,6 +93,10 @@ function renderUserMenu(user) {
     await signOut(auth);
   });
 }
+
+onRoleUpdated(() => {
+  if (cachedUser) renderUserMenu(cachedUser);
+});
 
 document.addEventListener('click', (e) => {
   const dropdown = document.getElementById('user-menu-dropdown');
