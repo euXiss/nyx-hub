@@ -6,7 +6,14 @@ import {
 import { getWikiEntries, openReaderModal, openEditorModal, attachWikiLinkAutocomplete } from './wiki-cms.js';
 import { isMaster } from './roles-manager.js';
 
+let allBoardCards = [];
+let allBoardFrames = [];
+let customBoards = [];
+let activeBoardId = localStorage.getItem('nyx_active_board_id') || 'default';
+
 let boardCards = [];
+let boardFrames = [];
+
 let unsubscribeBoard = null;
 let escapeKeyHandler = null;
 
@@ -19,12 +26,20 @@ let panStart = { x: 0, y: 0 };
 let draggingCardId = null;
 let dragOffset = { x: 0, y: 0 };
 let dragCurrentPos = { x: 0, y: 0 };
-let activeAlignGuides = []; // Guias visuais de alinhamento/simetria
+let activeAlignGuides = [];
+
+// Redimensionamento de etiquetas/cartões
+let resizingCardState = null; // { cardId, startClientX, startClientY, startW, startH, currentW, currentH }
+
+// Arraste e redimensionamento de molduras (Frames)
+let draggingFrameState = null;
+let resizingFrameState = null;
+let groupDragCardPos = new Map();
 
 // Controle de criação e reatribuição de fios
 let pendingEdgeInteraction = null;
-let wiringDrag = null; // { mode: 'create' | 'rewire-target' | 'rewire-source', ... }
-let hoveredTarget = null; // { cardId, side }
+let wiringDrag = null;
+let hoveredTarget = null;
 let pointerWorldPos = { x: 0, y: 0 };
 
 const PIN_PRESETS = {
@@ -32,6 +47,15 @@ const PIN_PRESETS = {
   crimson: { label: 'Suspeita', color: '#C62828' },
   white: { label: 'Teoria', color: '#f5f0ec' }
 };
+
+const FRAME_COLORS = [
+  { label: 'Dourado', hex: '#D4AF37' },
+  { label: 'Carmesim', hex: '#C62828' },
+  { label: 'Violeta', hex: '#8b5cf6' },
+  { label: 'Esmeralda', hex: '#10b981' },
+  { label: 'Azul', hex: '#3b82f6' },
+  { label: 'Prata', hex: '#cbd5e1' }
+];
 
 const PALETTE_SWATCHES = [
   '#D4AF37', '#C62828', '#f5f0ec', '#8b5cf6',
@@ -44,12 +68,125 @@ const LEGACY_EDGE_COLORS = {
   white: '#e5e0dc'
 };
 
+function injectFrameStyles() {
+  if (document.getElementById('nyx-canvas-frames-style')) return;
+  const style = document.createElement('style');
+  style.id = 'nyx-canvas-frames-style';
+  style.textContent = `
+    #nyx-canvas-frames {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+    }
+    #nyx-canvas-svg {
+      z-index: 2;
+    }
+    #nyx-canvas-cards {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+    }
+    .nyx-board-card {
+      min-width: 170px;
+      max-width: none;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+    }
+    .nyx-board-card.resizing-card {
+      user-select: none;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.75), 0 0 0 1px var(--dourado);
+      z-index: 25;
+    }
+    .nyx-board-card-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+    }
+    .nyx-card-resize {
+      position: absolute;
+      right: 2px;
+      bottom: 2px;
+      width: 16px;
+      height: 16px;
+      cursor: nwse-resize;
+      z-index: 6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.45;
+      transition: opacity 0.15s ease;
+    }
+    .nyx-board-card:hover .nyx-card-resize,
+    .nyx-board-card.resizing-card .nyx-card-resize {
+      opacity: 1;
+    }
+    .nyx-board-frame {
+      position: absolute;
+      border-radius: 14px;
+      border: 1.5px dashed;
+      box-shadow: inset 0 0 32px rgba(0, 0, 0, 0.35);
+      transition: box-shadow 0.15s ease;
+      pointer-events: none;
+    }
+    .nyx-board-frame.dragging-frame {
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.65), inset 0 0 32px rgba(0, 0, 0, 0.35);
+    }
+    .nyx-frame-header {
+      pointer-events: auto;
+      cursor: grab;
+      user-select: none;
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+    }
+    .nyx-frame-header:active {
+      cursor: grabbing;
+    }
+    .nyx-frame-resize {
+      position: absolute;
+      right: 2px;
+      bottom: 2px;
+      width: 18px;
+      height: 18px;
+      cursor: nwse-resize;
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.7;
+    }
+    .nyx-frame-resize:hover {
+      opacity: 1;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 function escapeHtml(str = '') {
   return String(str)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function hexToRgba(hex = '#D4AF37', alpha = 0.1) {
+  const clean = /^#[0-9A-Fa-f]{6}$/.test(hex) ? hex.slice(1) : 'D4AF37';
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function syncActiveBoardCollections() {
+  if (activeBoardId !== 'default' && !customBoards.some(b => b.id === activeBoardId)) {
+    activeBoardId = 'default';
+    localStorage.setItem('nyx_active_board_id', 'default');
+  }
+
+  boardCards = allBoardCards.filter(c => (c.boardId || 'default') === activeBoardId);
+  boardFrames = allBoardFrames.filter(f => (f.boardId || 'default') === activeBoardId);
 }
 
 function resolvePinVisual(pinColor = 'gold') {
@@ -135,10 +272,21 @@ function applyCameraTransform() {
 
 function getCardBounds(card) {
   const el = document.getElementById(`board-card-${card.id}`);
-  const w = el ? el.offsetWidth : 265;
-  const h = el ? el.offsetHeight : 145;
-  const x = (draggingCardId === card.id) ? dragCurrentPos.x : (card.x || 0);
-  const y = (draggingCardId === card.id) ? dragCurrentPos.y : (card.y || 0);
+  const w = el ? el.offsetWidth : (card.w || 265);
+  const h = el ? el.offsetHeight : (card.h || 145);
+
+  let x = card.x || 0;
+  let y = card.y || 0;
+
+  if (draggingCardId === card.id) {
+    x = dragCurrentPos.x;
+    y = dragCurrentPos.y;
+  } else if (groupDragCardPos.has(card.id)) {
+    const pos = groupDragCardPos.get(card.id);
+    x = pos.x;
+    y = pos.y;
+  }
+
   return { x, y, w, h, cx: x + w / 2, cy: y + h / 2 };
 }
 
@@ -182,7 +330,6 @@ function getBestAnchorPair(cardA, cardB) {
   return best;
 }
 
-/* Usa os pontos escolhidos pelo usuário; só calcula automático se for fio antigo sem ponto salvo */
 function getEdgeEndpoints(sourceCard, targetCard, conn) {
   let fallback = null;
   if (!conn.fromSide || !conn.toSide) {
@@ -204,7 +351,6 @@ function getControlOffset(side, dist) {
   return { dx: pull, dy: 0 };
 }
 
-/* Alinhamento magnético opcional (estilo Obsidian) + Guias de Simetria */
 function computeSmartAlignment(movingId, rawX, rawY) {
   const el = document.getElementById(`board-card-${movingId}`);
   const mw = el ? el.offsetWidth : 265;
@@ -296,14 +442,13 @@ function computeSmartAlignment(movingId, rawX, rawY) {
   return { x: snappedX, y: snappedY, guides };
 }
 
-/* Colisão de bordas para evitar sobreposição entre etiquetas */
 function resolveCardCollision(movingId, rawX, rawY) {
   const movingCard = boardCards.find(c => c.id === movingId);
   if (!movingCard) return { x: rawX, y: rawY };
 
   const el = document.getElementById(`board-card-${movingId}`);
-  const mw = el ? el.offsetWidth : 265;
-  const mh = el ? el.offsetHeight : 145;
+  const mw = el ? el.offsetWidth : (movingCard.w || 265);
+  const mh = el ? el.offsetHeight : (movingCard.h || 145);
   const GAP = 14;
 
   let x = rawX;
@@ -383,6 +528,278 @@ function updateHoveredTargetVisuals(nextTarget) {
       nextCardEl?.querySelector(`[data-port-side="${nextSide}"]`)?.classList.add('port-target-hover');
     }
   }
+}
+
+/* Renderização das Molduras (Frames) */
+function countCardsInsideFrame(frame) {
+  const fx = frame.x || 0;
+  const fy = frame.y || 0;
+  const fw = frame.w || 560;
+  const fh = frame.h || 380;
+
+  return boardCards.filter(card => {
+    const b = getCardBounds(card);
+    return b.cx >= fx && b.cx <= fx + fw && b.cy >= fy && b.cy <= fy + fh;
+  });
+}
+
+function renderBoardFrames() {
+  const framesLayer = document.getElementById('nyx-canvas-frames');
+  if (!framesLayer) return;
+
+  const currentUid = auth.currentUser?.uid || '';
+  const masterMode = isMaster();
+
+  framesLayer.innerHTML = boardFrames.map(frame => {
+    const color = /^#[0-9A-Fa-f]{6}$/.test(frame.color) ? frame.color : '#D4AF37';
+    const x = Math.round(frame.x || 0);
+    const y = Math.round(frame.y || 0);
+    const w = Math.round(frame.w || 560);
+    const h = Math.round(frame.h || 380);
+    const insideCount = countCardsInsideFrame(frame).length;
+    const canDelete = masterMode || (frame.createdByUid && frame.createdByUid === currentUid);
+
+    return `
+      <div id="board-frame-${frame.id}"
+        data-frame-id="${frame.id}"
+        style="left: ${x}px; top: ${y}px; width: ${w}px; height: ${h}px; border-color: ${color}77; background-color: ${hexToRgba(color, 0.07)};"
+        class="nyx-board-frame">
+
+        <div data-frame-drag="${frame.id}"
+          style="background-color: ${hexToRgba(color, 0.2)}; border-bottom: 1px solid ${color}44;"
+          class="nyx-frame-header px-3.5 py-2 flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${color};"></span>
+            <span class="text-xs font-bold tracking-wide truncate" style="color: ${color};">${escapeHtml(frame.title || 'Moldura de Caso')}</span>
+            <span class="text-[10px] font-mono-code px-1.5 py-0.5 rounded bg-black/40 text-[var(--texto-mutado)] shrink-0">
+              ${insideCount} ${insideCount === 1 ? 'pista' : 'pistas'}
+            </span>
+          </div>
+
+          <div class="flex items-center gap-2 shrink-0 text-[10px] font-mono-code">
+            <button type="button" data-edit-frame="${frame.id}" class="text-[var(--dourado-claro)] hover:underline">Editar</button>
+            ${canDelete ? `<button type="button" data-del-frame="${frame.id}" class="text-red-400 hover:underline" title="Remover moldura (mantém as pistas)">✕</button>` : ''}
+          </div>
+        </div>
+
+        <div data-frame-resize="${frame.id}" class="nyx-frame-resize" title="Redimensionar moldura">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M11 3L3 11M11 7L7 11" stroke="${color}" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  framesLayer.querySelectorAll('[data-edit-frame]').forEach(btn => {
+    btn.addEventListener('pointerdown', e => e.stopPropagation());
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const frame = boardFrames.find(f => f.id === btn.dataset.editFrame);
+      if (frame) openBoardFrameModal(frame);
+    });
+  });
+
+  framesLayer.querySelectorAll('[data-del-frame]').forEach(btn => {
+    btn.addEventListener('pointerdown', e => e.stopPropagation());
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.delFrame;
+      if (confirm('Remover esta moldura? (As anotações dentro dela serão mantidas)')) {
+        await deleteDoc(doc(db, 'wikis', id));
+      }
+    });
+  });
+
+  framesLayer.querySelectorAll('[data-frame-drag]').forEach(headerEl => {
+    headerEl.addEventListener('dblclick', (e) => {
+      if (e.target.closest('button')) return;
+      e.stopPropagation();
+      const frame = boardFrames.find(f => f.id === headerEl.dataset.frameDrag);
+      if (frame) openBoardFrameModal(frame);
+    });
+
+    headerEl.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button')) return;
+      e.stopPropagation();
+
+      const frameId = headerEl.dataset.frameDrag;
+      const frame = boardFrames.find(f => f.id === frameId);
+      if (!frame) return;
+
+      const stage = document.getElementById('nyx-canvas-stage');
+      const rect = stage.getBoundingClientRect();
+      const wx = (e.clientX - rect.left - camera.x) / camera.zoom;
+      const wy = (e.clientY - rect.top - camera.y) / camera.zoom;
+
+      const capturedCards = new Map();
+      groupDragCardPos.clear();
+
+      countCardsInsideFrame(frame).forEach(c => {
+        capturedCards.set(c.id, { x: c.x || 0, y: c.y || 0 });
+        groupDragCardPos.set(c.id, { x: c.x || 0, y: c.y || 0 });
+      });
+
+      draggingFrameState = {
+        frameId,
+        offsetX: wx - (frame.x || 0),
+        offsetY: wy - (frame.y || 0),
+        startX: frame.x || 0,
+        startY: frame.y || 0,
+        currentX: frame.x || 0,
+        currentY: frame.y || 0,
+        capturedCards
+      };
+
+      const frameEl = document.getElementById(`board-frame-${frameId}`);
+      frameEl?.classList.add('dragging-frame');
+      headerEl.setPointerCapture(e.pointerId);
+    });
+
+    headerEl.addEventListener('pointermove', (e) => {
+      if (!draggingFrameState || draggingFrameState.frameId !== headerEl.dataset.frameDrag) return;
+
+      const stage = document.getElementById('nyx-canvas-stage');
+      const rect = stage.getBoundingClientRect();
+      const wx = (e.clientX - rect.left - camera.x) / camera.zoom;
+      const wy = (e.clientY - rect.top - camera.y) / camera.zoom;
+
+      const nextX = Math.round(wx - draggingFrameState.offsetX);
+      const nextY = Math.round(wy - draggingFrameState.offsetY);
+      const dx = nextX - draggingFrameState.startX;
+      const dy = nextY - draggingFrameState.startY;
+
+      draggingFrameState.currentX = nextX;
+      draggingFrameState.currentY = nextY;
+
+      const frameEl = document.getElementById(`board-frame-${draggingFrameState.frameId}`);
+      if (frameEl) {
+        frameEl.style.left = `${nextX}px`;
+        frameEl.style.top = `${nextY}px`;
+      }
+
+      draggingFrameState.capturedCards.forEach((origPos, cardId) => {
+        const movedPos = { x: origPos.x + dx, y: origPos.y + dy };
+        groupDragCardPos.set(cardId, movedPos);
+        const cardEl = document.getElementById(`board-card-${cardId}`);
+        if (cardEl) {
+          cardEl.style.left = `${movedPos.x}px`;
+          cardEl.style.top = `${movedPos.y}px`;
+        }
+      });
+
+      renderEdges();
+    });
+
+    headerEl.addEventListener('pointerup', async () => {
+      if (!draggingFrameState || draggingFrameState.frameId !== headerEl.dataset.frameDrag) return;
+
+      const state = draggingFrameState;
+      draggingFrameState = null;
+
+      const frameEl = document.getElementById(`board-frame-${state.frameId}`);
+      frameEl?.classList.remove('dragging-frame');
+
+      const moved = state.currentX !== state.startX || state.currentY !== state.startY;
+      if (!moved) {
+        groupDragCardPos.clear();
+        return;
+      }
+
+      const updates = [];
+      const frame = boardFrames.find(f => f.id === state.frameId);
+      if (frame) {
+        frame.x = state.currentX;
+        frame.y = state.currentY;
+        updates.push(
+          updateDoc(doc(db, 'wikis', state.frameId), {
+            x: state.currentX,
+            y: state.currentY,
+            updatedAt: serverTimestamp()
+          })
+        );
+      }
+
+      groupDragCardPos.forEach((pos, cardId) => {
+        const card = boardCards.find(c => c.id === cardId);
+        if (card) {
+          card.x = pos.x;
+          card.y = pos.y;
+          updates.push(
+            updateDoc(doc(db, 'wikis', cardId), {
+              x: pos.x,
+              y: pos.y,
+              updatedAt: serverTimestamp()
+            })
+          );
+        }
+      });
+
+      groupDragCardPos.clear();
+      await Promise.all(updates);
+    });
+  });
+
+  framesLayer.querySelectorAll('[data-frame-resize]').forEach(handleEl => {
+    handleEl.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+
+      const frameId = handleEl.dataset.frameResize;
+      const frame = boardFrames.find(f => f.id === frameId);
+      if (!frame) return;
+
+      resizingFrameState = {
+        frameId,
+        startClientX: e.clientX,
+        startClientY: e.clientY,
+        startW: frame.w || 560,
+        startH: frame.h || 380,
+        currentW: frame.w || 560,
+        currentH: frame.h || 380
+      };
+
+      handleEl.setPointerCapture(e.pointerId);
+    });
+
+    handleEl.addEventListener('pointermove', (e) => {
+      if (!resizingFrameState || resizingFrameState.frameId !== handleEl.dataset.frameResize) return;
+
+      const dw = (e.clientX - resizingFrameState.startClientX) / camera.zoom;
+      const dh = (e.clientY - resizingFrameState.startClientY) / camera.zoom;
+
+      const nextW = Math.max(240, Math.round(resizingFrameState.startW + dw));
+      const nextH = Math.max(170, Math.round(resizingFrameState.startH + dh));
+
+      resizingFrameState.currentW = nextW;
+      resizingFrameState.currentH = nextH;
+
+      const frameEl = document.getElementById(`board-frame-${resizingFrameState.frameId}`);
+      if (frameEl) {
+        frameEl.style.width = `${nextW}px`;
+        frameEl.style.height = `${nextH}px`;
+      }
+    });
+
+    handleEl.addEventListener('pointerup', async () => {
+      if (!resizingFrameState || resizingFrameState.frameId !== handleEl.dataset.frameResize) return;
+
+      const state = resizingFrameState;
+      resizingFrameState = null;
+
+      const frame = boardFrames.find(f => f.id === state.frameId);
+      if (frame && (frame.w !== state.currentW || frame.h !== state.currentH)) {
+        frame.w = state.currentW;
+        frame.h = state.currentH;
+        await updateDoc(doc(db, 'wikis', state.frameId), {
+          w: state.currentW,
+          h: state.currentH,
+          updatedAt: serverTimestamp()
+        });
+        renderBoardFrames();
+      }
+    });
+  });
 }
 
 function renderEdges() {
@@ -595,10 +1012,13 @@ function renderBoardCards() {
     const canDelete = masterMode || (card.createdByUid && card.createdByUid === currentUid);
     const isTargetHover = hoveredTarget?.cardId === card.id;
 
+    const widthStyle = card.w ? `width: ${Math.round(card.w)}px;` : '';
+    const heightStyle = card.h ? `height: ${Math.round(card.h)}px;` : '';
+
     return `
       <div id="board-card-${card.id}"
         data-card-id="${card.id}"
-        style="left: ${Math.round(card.x || 0)}px; top: ${Math.round(card.y || 0)}px; border-color: ${pin.border};"
+        style="left: ${Math.round(card.x || 0)}px; top: ${Math.round(card.y || 0)}px; ${widthStyle} ${heightStyle} border-color: ${pin.border};"
         class="nyx-board-card ${isTargetHover ? 'link-target-hover' : ''}">
 
         <div class="nyx-port nyx-port-top ${isTargetHover && hoveredTarget?.side === 'top' ? 'port-target-hover' : ''}"
@@ -610,22 +1030,24 @@ function renderBoardCards() {
         <div class="nyx-port nyx-port-left ${isTargetHover && hoveredTarget?.side === 'left' ? 'port-target-hover' : ''}"
           data-port-card="${card.id}" data-port-side="left" title="Ponto Esquerdo"></div>
         
-        <div class="px-3.5 py-2.5 border-b border-[var(--borda-fina)] flex items-center gap-2 bg-black/30 rounded-t-xl">
+        <div class="px-3.5 py-2 border-b border-[var(--borda-fina)] flex items-center gap-2 bg-black/30 rounded-t-xl shrink-0">
           <span class="nyx-board-pin" style="background-color: ${pin.color};" title="${pin.label}"></span>
           <span class="text-xs font-bold text-[var(--dourado-claro)] truncate">${escapeHtml(card.title || 'Anotação de Pista')}</span>
         </div>
 
-        ${card.imageUrl ? `
-          <div class="nyx-board-card-media-wrap">
-            <img src="${card.imageUrl}" alt="${escapeHtml(card.title || 'Pista')}" class="nyx-board-card-media">
-          </div>
-        ` : ''}
+        <div class="nyx-board-card-body">
+          ${card.imageUrl ? `
+            <div class="nyx-board-card-media-wrap">
+              <img src="${card.imageUrl}" alt="${escapeHtml(card.title || 'Pista')}" class="nyx-board-card-media">
+            </div>
+          ` : ''}
 
-        <div class="p-3.5 text-xs text-[var(--texto-principal)] leading-relaxed whitespace-pre-line break-words">
-          ${renderCardLinkedText(card.content || '')}
+          <div class="p-3.5 text-xs text-[var(--texto-principal)] leading-relaxed whitespace-pre-line break-words">
+            ${renderCardLinkedText(card.content || '')}
+          </div>
         </div>
 
-        <div class="px-3.5 py-2 border-t border-[var(--borda-fina)] bg-black/25 rounded-b-xl flex items-center justify-between gap-2 text-[10px] font-mono-code">
+        <div class="pl-3.5 pr-5 py-2 border-t border-[var(--borda-fina)] bg-black/25 rounded-b-xl flex items-center justify-between gap-2 text-[10px] font-mono-code shrink-0 mt-auto">
           <span class="text-[var(--texto-mutado)] truncate" title="Registrado por ${escapeHtml(card.createdBy || 'Investigador')}">
             ✒️ ${escapeHtml(card.createdBy || 'Investigador')}
           </span>
@@ -633,6 +1055,12 @@ function renderBoardCards() {
             <button type="button" data-edit-card="${card.id}" class="text-[var(--dourado-claro)] hover:underline">Editar</button>
             ${canDelete ? `<button type="button" data-del-card="${card.id}" class="text-red-400 hover:underline">✕</button>` : ''}
           </div>
+        </div>
+
+        <div data-card-resize="${card.id}" class="nyx-card-resize" title="Arraste para aumentar/diminuir • Duplo clique para tamanho padrão">
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+            <path d="M11 3L3 11M11 7L7 11" stroke="${pin.color}" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
         </div>
       </div>
     `;
@@ -670,6 +1098,101 @@ function renderBoardCards() {
     });
   });
 
+  // Redimensionar etiqueta / cartão
+  cardsLayer.querySelectorAll('[data-card-resize]').forEach(handleEl => {
+    handleEl.addEventListener('dblclick', async (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const cardId = handleEl.dataset.cardResize;
+      const card = boardCards.find(c => c.id === cardId);
+      if (!card) return;
+
+      card.w = null;
+      card.h = null;
+      const cardEl = document.getElementById(`board-card-${cardId}`);
+      if (cardEl) {
+        cardEl.style.width = '';
+        cardEl.style.height = '';
+      }
+      renderEdges();
+      renderBoardFrames();
+
+      await updateDoc(doc(db, 'wikis', cardId), {
+        w: null,
+        h: null,
+        updatedAt: serverTimestamp()
+      });
+    });
+
+    handleEl.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+
+      const cardId = handleEl.dataset.cardResize;
+      const card = boardCards.find(c => c.id === cardId);
+      const cardEl = document.getElementById(`board-card-${cardId}`);
+      if (!card || !cardEl) return;
+
+      resizingCardState = {
+        cardId,
+        startClientX: e.clientX,
+        startClientY: e.clientY,
+        startW: cardEl.offsetWidth,
+        startH: cardEl.offsetHeight,
+        currentW: cardEl.offsetWidth,
+        currentH: cardEl.offsetHeight
+      };
+
+      cardEl.classList.add('resizing-card');
+      handleEl.setPointerCapture(e.pointerId);
+    });
+
+    handleEl.addEventListener('pointermove', (e) => {
+      if (!resizingCardState || resizingCardState.cardId !== handleEl.dataset.cardResize) return;
+
+      const dw = (e.clientX - resizingCardState.startClientX) / camera.zoom;
+      const dh = (e.clientY - resizingCardState.startClientY) / camera.zoom;
+
+      const nextW = Math.min(720, Math.max(170, Math.round(resizingCardState.startW + dw)));
+      const nextH = Math.min(720, Math.max(105, Math.round(resizingCardState.startH + dh)));
+
+      resizingCardState.currentW = nextW;
+      resizingCardState.currentH = nextH;
+
+      const cardEl = document.getElementById(`board-card-${resizingCardState.cardId}`);
+      if (cardEl) {
+        cardEl.style.width = `${nextW}px`;
+        cardEl.style.height = `${nextH}px`;
+      }
+
+      renderEdges();
+    });
+
+    handleEl.addEventListener('pointerup', async () => {
+      if (!resizingCardState || resizingCardState.cardId !== handleEl.dataset.cardResize) return;
+
+      const state = resizingCardState;
+      resizingCardState = null;
+
+      const cardEl = document.getElementById(`board-card-${state.cardId}`);
+      cardEl?.classList.remove('resizing-card');
+
+      renderEdges();
+      renderBoardFrames();
+
+      const card = boardCards.find(c => c.id === state.cardId);
+      if (card && (card.w !== state.currentW || card.h !== state.currentH)) {
+        card.w = state.currentW;
+        card.h = state.currentH;
+        await updateDoc(doc(db, 'wikis', state.cardId), {
+          w: state.currentW,
+          h: state.currentH,
+          updatedAt: serverTimestamp()
+        });
+      }
+    });
+  });
+
   cardsLayer.querySelectorAll('.nyx-port').forEach(portEl => {
     portEl.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
@@ -699,14 +1222,14 @@ function renderBoardCards() {
 
   cardsLayer.querySelectorAll('.nyx-board-card').forEach(cardEl => {
     cardEl.addEventListener('dblclick', (e) => {
-      if (e.target.closest('button') || e.target.closest('.nyx-port')) return;
+      if (e.target.closest('button') || e.target.closest('.nyx-port') || e.target.closest('[data-card-resize]')) return;
       e.stopPropagation();
       const card = boardCards.find(c => c.id === cardEl.dataset.cardId);
       if (card) openBoardCardReaderModal(card);
     });
 
     cardEl.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('button') || e.target.closest('.nyx-port')) return;
+      if (e.target.closest('button') || e.target.closest('.nyx-port') || e.target.closest('[data-card-resize]')) return;
       e.stopPropagation();
 
       const cardId = cardEl.dataset.cardId;
@@ -766,6 +1289,7 @@ function renderBoardCards() {
       activeAlignGuides = [];
       cardEl.classList.remove('dragging');
       renderEdges();
+      renderBoardFrames();
 
       const card = boardCards.find(c => c.id === finishedId);
       if (card && (card.x !== finalX || card.y !== finalY)) {
@@ -780,10 +1304,10 @@ function renderBoardCards() {
     });
   });
 
+  renderBoardFrames();
   requestAnimationFrame(renderEdges);
 }
 
-/* Janela Flutuante de Leitura Detalhada da Pista (Duplo Clique) */
 function openBoardCardReaderModal(card) {
   const modalRoot = document.getElementById('modal-root');
   const pin = resolvePinVisual(card.pinColor);
@@ -863,7 +1387,6 @@ async function createConnectionBetweenCards(sourceId, sourceSide, targetId, targ
   });
 }
 
-/* Janela de Adaptação do Fio ('Adaptar Fio') */
 function openEdgeEditorModal(sourceId, edgeIndex) {
   const sourceCard = boardCards.find(c => c.id === sourceId);
   if (!sourceCard || !Array.isArray(sourceCard.connections) || !sourceCard.connections[edgeIndex]) return;
@@ -1028,6 +1551,214 @@ function openEdgeEditorModal(sourceId, edgeIndex) {
     await updateDoc(doc(db, 'wikis', sourceId), { connections: updated, updatedAt: serverTimestamp() });
     close();
   });
+}
+
+/* Janela 'Nova Moldura' / 'Editar Moldura' */
+function openBoardFrameModal(existing = null) {
+  const modalRoot = document.getElementById('modal-root');
+  let selectedColor = existing?.color || '#D4AF37';
+
+  modalRoot.innerHTML = `
+    <div class="nyx-modal-backdrop" id="board-frame-backdrop">
+      <div class="bg-[var(--bg-surface)] border border-[var(--dourado)] rounded-xl max-w-md w-full p-6 shadow-2xl">
+        <div class="flex items-center justify-between border-b border-[var(--borda-fina)] pb-3 mb-4">
+          <h3 class="text-lg font-bold text-[var(--dourado)]">${existing ? 'Editar Moldura' : 'Nova Moldura de Agrupamento'}</h3>
+          <button id="close-frame-modal" class="text-sm text-[var(--texto-mutado)] hover:text-white">✕</button>
+        </div>
+
+        <form id="board-frame-form" class="space-y-4">
+          <div>
+            <label class="block text-xs text-[var(--dourado-claro)] mb-1">Título da Moldura / Núcleo</label>
+            <input type="text" id="board-frame-title" required value="${escapeHtml(existing?.title || '')}" placeholder="Ex: Núcleo da Família Valente, Pistas das Docas..."
+              class="w-full bg-[var(--bg-card)] text-[var(--texto-principal)] border border-[var(--borda-fina)] rounded-lg px-3 py-2 text-sm focus:border-[var(--dourado)] focus:outline-none">
+          </div>
+
+          <div>
+            <label class="block text-xs text-[var(--dourado-claro)] mb-1.5">Cor da Moldura</label>
+            <div class="flex flex-wrap items-center gap-2">
+              ${FRAME_COLORS.map(c => `
+                <button type="button" data-frame-swatch="${c.hex}" title="${c.label}"
+                  style="background-color: ${c.hex};"
+                  class="w-7 h-7 rounded-full border-2 transition ${selectedColor.toLowerCase() === c.hex.toLowerCase() ? 'border-white scale-110' : 'border-black/60 opacity-85 hover:opacity-100'}">
+                </button>
+              `).join('')}
+              <label class="ml-1 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--bg-card)] border border-[var(--borda-fina)] text-[11px] text-[var(--dourado-claro)] cursor-pointer">
+                <span>🎨 Outra</span>
+                <input type="color" id="board-frame-color" value="${selectedColor}" class="w-5 h-5 bg-transparent border-0 cursor-pointer">
+              </label>
+            </div>
+          </div>
+
+          <p class="text-[11px] text-[var(--texto-mutado)] leading-relaxed">
+            Dica: arraste a barra superior da moldura para mover todas as anotações dentro dela de uma só vez.
+          </p>
+
+          <div class="flex justify-end gap-3 pt-2 border-t border-[var(--borda-fina)]">
+            <button type="button" id="cancel-frame-modal" class="px-4 py-2 rounded-lg text-xs text-[var(--texto-mutado)] hover:text-white">Cancelar</button>
+            <button type="submit" id="save-frame-btn" class="px-5 py-2 rounded-lg bg-[var(--vinho-escuro)] hover:bg-[var(--vinho)] border border-[var(--dourado)] text-[var(--dourado-claro)] font-bold text-sm">
+              ${existing ? 'Salvar' : 'Criar Moldura'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+
+  const colorPicker = document.getElementById('board-frame-color');
+  const syncSwatches = () => {
+    modalRoot.querySelectorAll('[data-frame-swatch]').forEach(btn => {
+      const active = btn.dataset.frameSwatch.toLowerCase() === selectedColor.toLowerCase();
+      btn.classList.toggle('border-white', active);
+      btn.classList.toggle('scale-110', active);
+      btn.classList.toggle('border-black/60', !active);
+    });
+  };
+
+  modalRoot.querySelectorAll('[data-frame-swatch]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectedColor = btn.dataset.frameSwatch;
+      colorPicker.value = selectedColor;
+      syncSwatches();
+    });
+  });
+
+  colorPicker.addEventListener('input', (e) => {
+    selectedColor = e.target.value;
+    syncSwatches();
+  });
+
+  const close = () => modalRoot.innerHTML = '';
+  document.getElementById('close-frame-modal').addEventListener('click', close);
+  document.getElementById('cancel-frame-modal').addEventListener('click', close);
+  document.getElementById('board-frame-backdrop').addEventListener('click', (e) => {
+    if (e.target.id === 'board-frame-backdrop') close();
+  });
+
+  document.getElementById('board-frame-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const saveBtn = document.getElementById('save-frame-btn');
+    saveBtn.disabled = true;
+    saveBtn.innerText = 'Salvando...';
+
+    const title = document.getElementById('board-frame-title').value.trim();
+
+    if (existing) {
+      await updateDoc(doc(db, 'wikis', existing.id), {
+        title,
+        color: selectedColor,
+        updatedAt: serverTimestamp()
+      });
+    } else {
+      const stage = document.getElementById('nyx-canvas-stage');
+      const rect = stage ? stage.getBoundingClientRect() : { width: 900, height: 600 };
+      const spawnX = Math.round((rect.width / 2 - camera.x) / camera.zoom - 280);
+      const spawnY = Math.round((rect.height / 2 - camera.y) / camera.zoom - 190);
+
+      await addDoc(collection(db, 'wikis'), {
+        nyxType: 'canvas_frame',
+        boardId: activeBoardId,
+        title,
+        color: selectedColor,
+        x: spawnX,
+        y: spawnY,
+        w: 580,
+        h: 400,
+        createdBy: getCurrentAuthorName(),
+        createdByUid: auth.currentUser?.uid || '',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    }
+    close();
+  });
+}
+
+/* Janela para Criar / Renomear Quadro */
+function openBoardManagerModal(existingBoard = null) {
+  const modalRoot = document.getElementById('modal-root');
+
+  modalRoot.innerHTML = `
+    <div class="nyx-modal-backdrop" id="board-mgr-backdrop">
+      <div class="bg-[var(--bg-surface)] border border-[var(--dourado)] rounded-xl max-w-md w-full p-6 shadow-2xl">
+        <div class="flex items-center justify-between border-b border-[var(--borda-fina)] pb-3 mb-4">
+          <h3 class="text-lg font-bold text-[var(--dourado)]">${existingBoard ? 'Renomear Quadro' : 'Novo Quadro de Investigação'}</h3>
+          <button id="close-board-mgr" class="text-sm text-[var(--texto-mutado)] hover:text-white">✕</button>
+        </div>
+
+        <form id="board-mgr-form" class="space-y-4">
+          <div>
+            <label class="block text-xs text-[var(--dourado-claro)] mb-1">Nome do Quadro / Caso</label>
+            <input type="text" id="board-mgr-title" required value="${escapeHtml(existingBoard?.title || '')}" placeholder="Ex: Caso 01 - O Sangue nas Docas"
+              class="w-full bg-[var(--bg-card)] text-[var(--texto-principal)] border border-[var(--borda-fina)] rounded-lg px-3 py-2 text-sm focus:border-[var(--dourado)] focus:outline-none">
+          </div>
+
+          <div class="flex justify-end gap-3 pt-2 border-t border-[var(--borda-fina)]">
+            <button type="button" id="cancel-board-mgr" class="px-4 py-2 rounded-lg text-xs text-[var(--texto-mutado)] hover:text-white">Cancelar</button>
+            <button type="submit" id="save-board-mgr" class="px-5 py-2 rounded-lg bg-[var(--vinho-escuro)] hover:bg-[var(--vinho)] border border-[var(--dourado)] text-[var(--dourado-claro)] font-bold text-sm">
+              ${existingBoard ? 'Salvar Nome' : 'Criar Quadro'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+
+  const close = () => modalRoot.innerHTML = '';
+  document.getElementById('close-board-mgr').addEventListener('click', close);
+  document.getElementById('cancel-board-mgr').addEventListener('click', close);
+  document.getElementById('board-mgr-backdrop').addEventListener('click', (e) => {
+    if (e.target.id === 'board-mgr-backdrop') close();
+  });
+
+  document.getElementById('board-mgr-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('save-board-mgr');
+    btn.disabled = true;
+    btn.innerText = 'Salvando...';
+
+    const title = document.getElementById('board-mgr-title').value.trim();
+
+    if (existingBoard) {
+      await updateDoc(doc(db, 'wikis', existingBoard.id), {
+        title,
+        updatedAt: serverTimestamp()
+      });
+    } else {
+      const created = await addDoc(collection(db, 'wikis'), {
+        nyxType: 'canvas_board',
+        title,
+        order: Date.now(),
+        createdBy: getCurrentAuthorName(),
+        createdByUid: auth.currentUser?.uid || '',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      activeBoardId = created.id;
+      localStorage.setItem('nyx_active_board_id', activeBoardId);
+      camera = { x: 120, y: 80, zoom: 1 };
+      applyCameraTransform();
+    }
+    close();
+  });
+}
+
+function renderBoardSelector() {
+  const selector = document.getElementById('nyx-board-selector');
+  const actionsWrap = document.getElementById('nyx-board-custom-actions');
+  if (!selector) return;
+
+  const sortedBoards = [...customBoards].sort((a, b) => (a.order || 0) - (b.order || 0));
+
+  selector.innerHTML = `
+    <option value="default" ${activeBoardId === 'default' ? 'selected' : ''}>📌 Quadro Principal</option>
+    ${sortedBoards.map(b => `
+      <option value="${b.id}" ${activeBoardId === b.id ? 'selected' : ''}>🗂️ ${escapeHtml(b.title || 'Quadro')}</option>
+    `).join('')}
+  `;
+
+  if (actionsWrap) {
+    actionsWrap.classList.toggle('hidden', activeBoardId === 'default');
+  }
 }
 
 /* Janela 'Nova Anotação' / 'Editar Anotação' */
@@ -1201,6 +1932,7 @@ function openBoardCardModal(existing = null, spawnCoords = null) {
 
       await addDoc(collection(db, 'wikis'), {
         nyxType: 'canvas_card',
+        boardId: activeBoardId,
         title,
         pinColor: selectedPin,
         imageUrl: currentImage,
@@ -1233,6 +1965,10 @@ export function unmountCanvasBoard() {
   setExpandedMode(false);
   pendingEdgeInteraction = null;
   wiringDrag = null;
+  resizingCardState = null;
+  draggingFrameState = null;
+  resizingFrameState = null;
+  groupDragCardPos.clear();
   updateHoveredTargetVisuals(null);
   draggingCardId = null;
   activeAlignGuides = [];
@@ -1245,20 +1981,47 @@ export function unmountCanvasBoard() {
 
 export function mountCanvasBoard(container) {
   unmountCanvasBoard();
+  injectFrameStyles();
 
   container.innerHTML = `
     <div id="nyx-canvas-wrapper" class="nyx-canvas-wrapper">
       <!-- Barra de Ferramentas do Quadro -->
       <div class="px-4 py-3 border-b border-[var(--borda-fina)] bg-[#120407] flex flex-wrap items-center justify-between gap-3">
+        <!-- Seletor de Quadros + Criação de Notas e Molduras -->
         <div class="flex flex-wrap items-center gap-2">
-          <button type="button" id="btn-new-board-card" class="px-4 py-1.5 rounded-lg bg-[var(--vinho-escuro)] hover:bg-[var(--vinho)] border border-[var(--dourado)] text-[var(--dourado-claro)] text-xs font-bold shadow">
+          <div class="flex items-center gap-1 bg-[#090204] border border-[var(--borda-fina)] rounded-lg px-2 py-1">
+            <select id="nyx-board-selector"
+              class="bg-transparent text-xs font-bold text-[var(--dourado-claro)] focus:outline-none cursor-pointer pr-1">
+              <option value="default">📌 Quadro Principal</option>
+            </select>
+
+            <button type="button" id="btn-new-board" title="Criar novo quadro / caso separado"
+              class="px-1.5 py-0.5 rounded bg-[var(--bg-card)] border border-[var(--borda-fina)] text-[11px] text-[var(--dourado)] hover:border-[var(--dourado)]">
+              + Quadro
+            </button>
+
+            <span id="nyx-board-custom-actions" class="hidden inline-flex items-center gap-1 ml-0.5">
+              <button type="button" id="btn-rename-board" title="Renomear este quadro"
+                class="px-1.5 py-0.5 rounded bg-[var(--bg-card)] border border-[var(--borda-fina)] text-[10px] text-[var(--texto-mutado)] hover:text-white">
+                ✎
+              </button>
+              <button type="button" id="btn-delete-board" title="Excluir este quadro"
+                class="px-1.5 py-0.5 rounded bg-[var(--bg-card)] border border-[var(--borda-fina)] text-[10px] text-red-400 hover:border-red-400">
+                ✕
+              </button>
+            </span>
+          </div>
+
+          <button type="button" id="btn-new-board-card" class="px-3.5 py-1.5 rounded-lg bg-[var(--vinho-escuro)] hover:bg-[var(--vinho)] border border-[var(--dourado)] text-[var(--dourado-claro)] text-xs font-bold shadow">
             + Nova Anotação
           </button>
-          <span class="hidden lg:inline text-[11px] font-mono-code text-[var(--texto-mutado)] ml-1">
-            Arraste pontos para ligar • Clique no fio para adaptar ou arraste-o para trocar de etiqueta
-          </span>
+
+          <button type="button" id="btn-new-board-frame" class="px-3 py-1.5 rounded-lg bg-[var(--bg-card)] hover:bg-[#1d070c] border border-[var(--borda-fina)] hover:border-[var(--dourado)] text-[var(--dourado)] text-xs font-semibold">
+            ▢ Nova Moldura
+          </button>
         </div>
 
+        <!-- Câmera & Expansão -->
         <div class="flex items-center gap-2">
           <span id="canvas-zoom-label" class="text-[11px] font-mono-code text-[var(--texto-mutado)] px-1">100%</span>
           <button type="button" id="btn-canvas-zoom-in" title="Aproximar" class="px-2.5 py-1 rounded bg-[var(--bg-card)] border border-[var(--borda-fina)] text-xs text-[var(--dourado-claro)]">+</button>
@@ -1275,6 +2038,7 @@ export function mountCanvasBoard(container) {
       <!-- Palco Infinito -->
       <div id="nyx-canvas-stage" class="nyx-canvas-stage">
         <div id="nyx-canvas-world" class="nyx-canvas-world">
+          <div id="nyx-canvas-frames"></div>
           <svg id="nyx-canvas-svg" class="nyx-canvas-svg"></svg>
           <div id="nyx-canvas-cards"></div>
         </div>
@@ -1285,8 +2049,42 @@ export function mountCanvasBoard(container) {
   const stage = document.getElementById('nyx-canvas-stage');
 
   applyCameraTransform();
+  renderBoardSelector();
+
+  document.getElementById('nyx-board-selector').addEventListener('change', (e) => {
+    activeBoardId = e.target.value;
+    localStorage.setItem('nyx_active_board_id', activeBoardId);
+    syncActiveBoardCollections();
+    renderBoardSelector();
+    renderBoardCards();
+  });
+
+  document.getElementById('btn-new-board').addEventListener('click', () => openBoardManagerModal(null));
+
+  document.getElementById('btn-rename-board').addEventListener('click', () => {
+    const current = customBoards.find(b => b.id === activeBoardId);
+    if (current) openBoardManagerModal(current);
+  });
+
+  document.getElementById('btn-delete-board').addEventListener('click', async () => {
+    if (activeBoardId === 'default') return;
+    const current = customBoards.find(b => b.id === activeBoardId);
+    if (!confirm(`Excluir o quadro "${current?.title || 'selecionado'}" e todas as anotações e molduras dentro dele?`)) return;
+
+    const toDeleteId = activeBoardId;
+    activeBoardId = 'default';
+    localStorage.setItem('nyx_active_board_id', 'default');
+
+    const batchDeletes = [
+      deleteDoc(doc(db, 'wikis', toDeleteId)),
+      ...allBoardCards.filter(c => c.boardId === toDeleteId).map(c => deleteDoc(doc(db, 'wikis', c.id))),
+      ...allBoardFrames.filter(f => f.boardId === toDeleteId).map(f => deleteDoc(doc(db, 'wikis', f.id)))
+    ];
+    await Promise.all(batchDeletes);
+  });
 
   document.getElementById('btn-new-board-card').addEventListener('click', () => openBoardCardModal());
+  document.getElementById('btn-new-board-frame').addEventListener('click', () => openBoardFrameModal());
 
   document.getElementById('btn-canvas-zoom-in').addEventListener('click', () => {
     camera.zoom = Math.min(2.2, camera.zoom * 1.15);
@@ -1533,14 +2331,30 @@ export function mountCanvasBoard(container) {
   // Sincronização em tempo real com Firestore
   if (!unsubscribeBoard) {
     unsubscribeBoard = onSnapshot(collection(db, 'wikis'), (snapshot) => {
-      boardCards = snapshot.docs
+      allBoardCards = snapshot.docs
         .filter(d => d.data().nyxType === 'canvas_card')
         .map(d => ({ id: d.id, ...d.data() }));
+
+      allBoardFrames = snapshot.docs
+        .filter(d => d.data().nyxType === 'canvas_frame')
+        .map(d => ({ id: d.id, ...d.data() }));
+
+      customBoards = snapshot.docs
+        .filter(d => d.data().nyxType === 'canvas_board')
+        .map(d => ({ id: d.id, ...d.data() }));
+
+      syncActiveBoardCollections();
+
+      if (document.getElementById('nyx-board-selector')) {
+        renderBoardSelector();
+      }
       if (document.getElementById('nyx-canvas-cards')) {
         renderBoardCards();
       }
     });
   } else {
+    syncActiveBoardCollections();
+    renderBoardSelector();
     renderBoardCards();
   }
 }
