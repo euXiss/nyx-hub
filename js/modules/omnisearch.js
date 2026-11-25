@@ -1,6 +1,7 @@
 // js/modules/omnisearch.js
 import { getWikiEntries, openReaderModal } from './wiki-cms.js';
 import { isMaster } from './roles-manager.js';
+import { attachGradualBlur } from './transitions.js';
 
 function escapeHtml(str = '') {
   return String(str)
@@ -111,6 +112,14 @@ export function initOmnisearch(canSearchFn) {
     }).join('');
 
     resultsBox.classList.remove('hidden');
+
+    attachGradualBlur(resultsBox, {
+      position: 'bottom',
+      height: '2.5rem',
+      strength: 1.15,
+      tint: 'rgba(19, 4, 7, 0.95)',
+      sticky: true
+    });
 
     resultsBox.querySelectorAll('[data-omni-idx]').forEach(btn => {
       btn.addEventListener('mousedown', (e) => {

@@ -1,5 +1,6 @@
 // js/modules/graph-view.js
 import { getWikiEntries, openReaderModal } from './wiki-cms.js';
+import { bindDissolveClearInput } from './transitions.js';
 
 let animationFrameId = null;
 let resizeObserver = null;
@@ -137,8 +138,17 @@ export function mountGraphView(container, preserveState = false) {
             ${categories.map(cat => `<option value="${escapeHtml(cat)}" ${savedState.activeCategory === cat ? 'selected' : ''}>${escapeHtml(cat)}</option>`).join('')}
           </select>
 
-          <input type="text" id="graph-search-input" value="${escapeHtml(savedState.searchTerm)}" placeholder="Localizar nó..."
-            class="bg-[var(--bg-card)] text-[var(--texto-principal)] border border-[var(--borda-fina)] rounded-lg px-3 py-1.5 text-xs w-44 focus:border-[var(--dourado)] focus:outline-none">
+          <div id="graph-search-clear-wrap" class="nyx-clear nyx-clear--compact w-48">
+            <input type="text" id="graph-search-input" value="${escapeHtml(savedState.searchTerm)}" autocomplete="off">
+            <div class="nyx-clear-mirror" aria-hidden="true"></div>
+            <div class="nyx-clear-placeholder" aria-hidden="true">Localizar nó...</div>
+            <div class="nyx-clear-glow" aria-hidden="true"></div>
+            <button type="button" class="nyx-clear-btn" aria-label="Limpar busca">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                <path d="M18 6L6 18M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
 
           <label class="inline-flex items-center gap-1.5 text-xs text-[var(--texto-principal)] cursor-pointer select-none">
             <input type="checkbox" id="graph-show-orphans" ${savedState.showOrphans ? 'checked' : ''} class="accent-[var(--dourado)] rounded cursor-pointer">
@@ -150,12 +160,12 @@ export function mountGraphView(container, preserveState = false) {
         <div class="flex flex-wrap items-center gap-2.5">
           <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#090204] border border-[var(--borda-fina)]">
             <span class="text-[11px] font-mono-code text-[var(--dourado-claro)]">Fios:</span>
-            <button type="button" id="graph-link-thin" title="Diminuir espessura do fio"
+            <button type="button" id="graph-link-thin" data-nyx-tip="Afinar fios de conexão" data-nyx-tip-side="bottom"
               class="w-5 h-5 rounded bg-[var(--bg-card)] border border-[var(--borda-fina)] text-[11px] text-[var(--dourado-claro)] leading-none">−</button>
             <input type="range" id="graph-link-width" min="1" max="8" step="0.5" value="${linkWidth}"
               title="Espessura dos fios de ligação"
               class="w-16 accent-[var(--dourado)] cursor-pointer">
-            <button type="button" id="graph-link-thick" title="Aumentar espessura do fio"
+            <button type="button" id="graph-link-thick" data-nyx-tip="Engrossar fios de conexão" data-nyx-tip-side="bottom"
               class="w-5 h-5 rounded bg-[var(--bg-card)] border border-[var(--borda-fina)] text-[11px] text-[var(--dourado-claro)] leading-none">+</button>
             <span id="graph-link-width-label" class="text-[10px] font-mono-code text-[var(--texto-mutado)] w-7 text-right">${linkWidth}px</span>
           </div>
@@ -163,15 +173,15 @@ export function mountGraphView(container, preserveState = false) {
           <span id="graph-stats-label" class="text-[11px] font-mono-code text-[var(--texto-mutado)]">0 nós • 0 conexões</span>
 
           <div class="flex items-center gap-1.5">
-            <button type="button" id="graph-zoom-in" title="Aproximar"
+            <button type="button" id="graph-zoom-in" data-nyx-tip="Aproximar gráfico" data-nyx-tip-side="bottom"
               class="px-2.5 py-1 rounded bg-[var(--bg-card)] border border-[var(--borda-fina)] text-xs text-[var(--dourado-claro)]">+</button>
-            <button type="button" id="graph-zoom-out" title="Afastar"
+            <button type="button" id="graph-zoom-out" data-nyx-tip="Afastar gráfico" data-nyx-tip-side="bottom"
               class="px-2.5 py-1 rounded bg-[var(--bg-card)] border border-[var(--borda-fina)] text-xs text-[var(--dourado-claro)]">−</button>
-            <button type="button" id="graph-center-btn"
+            <button type="button" id="graph-center-btn" data-nyx-tip="Centralizar rede no palco" data-nyx-tip-side="bottom"
               class="px-2.5 py-1 rounded bg-[var(--bg-card)] border border-[var(--borda-fina)] text-xs text-[var(--texto-mutado)] hover:text-white">
               Centralizar
             </button>
-            <button type="button" id="btn-graph-expand"
+            <button type="button" id="btn-graph-expand" data-nyx-tip="Alternar tela cheia" data-nyx-kbd="Esc" data-nyx-tip-side="bottom"
               class="px-3 py-1 rounded bg-[#1d070c] border border-[var(--dourado)] text-xs text-[var(--dourado)] font-semibold">
               ⛶ Expandir Visão
             </button>
@@ -201,6 +211,8 @@ export function mountGraphView(container, preserveState = false) {
     setExpandedMode(true);
   }
 
+  bindDissolveClearInput(document.getElementById('graph-search-clear-wrap'));
+
   const stage = document.getElementById('nyx-graph-stage');
   const canvas = document.getElementById('nyx-graph-canvas');
   const ctx = canvas.getContext('2d');
@@ -229,7 +241,7 @@ export function mountGraphView(container, preserveState = false) {
       vx: 0,
       vy: 0,
       radius: 9,
-      collisionRadius: 15.5, // Rente à borda do anel externo da célula
+      collisionRadius: 15.5,
       degree: 0
     };
   });
@@ -327,7 +339,6 @@ export function mountGraphView(container, preserveState = false) {
     return { visibleNodes, visibleEdges };
   }
 
-  /* Hitbox precisa cobrindo o círculo e o título do nó */
   function findNodeAtScreen(sx, sy) {
     const { visibleNodes } = getVisibleGraph();
     const { x: wx, y: wy } = screenToWorld(sx, sy);
@@ -358,12 +369,10 @@ export function mountGraphView(container, preserveState = false) {
     return null;
   }
 
-  /* Simulação física com colisão rente à borda da célula */
   function stepPhysics(visibleNodes, visibleEdges) {
     const count = visibleNodes.length;
     if (count === 0) return;
 
-    // 1. Gravidade suave para manter o grafo agrupado no centro
     for (let i = 0; i < count; i++) {
       const n = visibleNodes[i];
       if (n === draggedNode) {
@@ -375,7 +384,6 @@ export function mountGraphView(container, preserveState = false) {
       n.vy += -n.y * 0.006;
     }
 
-    // 2. Repulsão leve para não haver barreira invisível distante
     for (let i = 0; i < count; i++) {
       const a = visibleNodes[i];
       for (let j = i + 1; j < count; j++) {
@@ -398,7 +406,6 @@ export function mountGraphView(container, preserveState = false) {
       }
     }
 
-    // 3. Atração das molas nos fios de ligação
     const idealLength = 135;
     for (let i = 0; i < visibleEdges.length; i++) {
       const edge = visibleEdges[i];
@@ -418,7 +425,6 @@ export function mountGraphView(container, preserveState = false) {
       if (b !== draggedNode) { b.vx -= fx; b.vy -= fy; }
     }
 
-    // 4. Integração de velocidade com amortecimento
     const maxSpeed = 14;
     for (let i = 0; i < count; i++) {
       const n = visibleNodes[i];
@@ -434,7 +440,6 @@ export function mountGraphView(container, preserveState = false) {
       n.y += n.vy;
     }
 
-    // 5. Colisão de contato rente à borda da célula (6 passos por frame)
     for (let iter = 0; iter < 6; iter++) {
       for (let i = 0; i < count; i++) {
         const a = visibleNodes[i];
@@ -517,7 +522,6 @@ export function mountGraphView(container, preserveState = false) {
 
     const query = searchTerm.trim().toLowerCase();
 
-    // 1. Desenha os fios com gradiente natural entre a cor da célula A e da célula B
     for (let i = 0; i < visibleEdges.length; i++) {
       const edge = visibleEdges[i];
       const a = nodeMap.get(edge.source);
@@ -557,7 +561,6 @@ export function mountGraphView(container, preserveState = false) {
       ctx.restore();
     }
 
-    // 2. Desenha as células/nós
     for (let i = 0; i < visibleNodes.length; i++) {
       const n = visibleNodes[i];
       const isFocus = focusNode && n.id === focusNode.id;
@@ -573,7 +576,6 @@ export function mountGraphView(container, preserveState = false) {
 
       const r = isFocus || matchesSearch ? n.radius + 2 : n.radius;
 
-      // Halo externo (borda física da célula)
       ctx.beginPath();
       ctx.arc(n.x, n.y, r + 5, 0, Math.PI * 2);
       ctx.strokeStyle = isFocus || matchesSearch ? '#D4AF37' : n.color;
@@ -581,7 +583,6 @@ export function mountGraphView(container, preserveState = false) {
       ctx.globalAlpha = alpha * (isFocus || matchesSearch ? 0.9 : 0.42);
       ctx.stroke();
 
-      // Núcleo da célula
       ctx.globalAlpha = alpha;
       ctx.beginPath();
       ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
@@ -592,7 +593,6 @@ export function mountGraphView(container, preserveState = false) {
       }
       ctx.fill();
 
-      // Rótulo abaixo da célula
       const fontSize = Math.max(11, Math.min(14, 12.5 / Math.pow(camera.zoom, 0.25)));
       ctx.font = `${isFocus || matchesSearch ? '700' : '600'} ${fontSize}px Lora, Georgia, serif`;
       ctx.textAlign = 'center';
@@ -609,7 +609,6 @@ export function mountGraphView(container, preserveState = false) {
     animationFrameId = requestAnimationFrame(renderFrame);
   }
 
-  // Eventos de Ponteiro (Hitbox, Arraste e Pan)
   canvas.addEventListener('pointerdown', (e) => {
     const rect = canvas.getBoundingClientRect();
     const sx = e.clientX - rect.left;
@@ -685,7 +684,6 @@ export function mountGraphView(container, preserveState = false) {
     }
   });
 
-  // Zoom focado no ponteiro
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
     const rect = canvas.getBoundingClientRect();
@@ -701,7 +699,6 @@ export function mountGraphView(container, preserveState = false) {
     savedState.camera = { ...camera };
   }, { passive: false });
 
-  // Controles da Barra Superior
   document.getElementById('graph-category-filter').addEventListener('change', (e) => {
     activeCategory = e.target.value;
     savedState.activeCategory = activeCategory;
@@ -755,7 +752,6 @@ export function mountGraphView(container, preserveState = false) {
   };
   document.addEventListener('keydown', keydownHandler);
 
-  // Controles de Espessura dos Fios
   const widthSlider = document.getElementById('graph-link-width');
   const widthLabel = document.getElementById('graph-link-width-label');
   const updateLinkWidth = (val) => {

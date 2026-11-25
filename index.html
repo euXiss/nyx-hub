@@ -7,20 +7,552 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="css/theme.css">
   <link rel="stylesheet" href="css/wiki.css">
+  <link rel="stylesheet" href="css/transitions.css">
+  <style>
+    /* Container Principal do Emblema NyX */
+    .nyx-hero-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 860px;
+      aspect-ratio: 16 / 6.6;
+      max-height: 290px;
+      min-height: 185px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: visible;
+      user-select: none;
+    }
+
+    /* Névoa Misteriosa e Aura Pulsante ao Redor do Título */
+    .nyx-hero-mist-back {
+      position: absolute;
+      inset: -28px -70px;
+      pointer-events: none;
+      z-index: 1;
+      background:
+        radial-gradient(ellipse 46% 58% at 32% 52%, rgba(196, 24, 40, 0.48) 0%, rgba(196, 24, 40, 0) 72%),
+        radial-gradient(ellipse 46% 58% at 68% 48%, rgba(168, 18, 32, 0.46) 0%, rgba(168, 18, 32, 0) 72%),
+        radial-gradient(ellipse 36% 48% at 50% 48%, rgba(229, 192, 92, 0.24) 0%, rgba(229, 192, 92, 0) 70%);
+      filter: blur(28px);
+      animation: nyx-mist-sway 11s ease-in-out infinite alternate;
+    }
+
+    .nyx-hero-mist-front {
+      position: absolute;
+      inset: 22px -45px -16px -45px;
+      pointer-events: none;
+      z-index: 5;
+      background:
+        radial-gradient(ellipse 35% 34% at 26% 74%, rgba(176, 22, 36, 0.32) 0%, transparent 75%),
+        radial-gradient(ellipse 38% 34% at 74% 70%, rgba(176, 22, 36, 0.32) 0%, transparent 75%),
+        radial-gradient(ellipse 30% 32% at 50% 80%, rgba(229, 192, 92, 0.16) 0%, transparent 75%);
+      filter: blur(20px);
+      animation: nyx-mist-drift 9s ease-in-out infinite alternate-reverse;
+    }
+
+    @keyframes nyx-mist-sway {
+      0% { transform: translate(-14px, -6px) scale(0.96); opacity: 0.82; }
+      50% { transform: translate(8px, 6px) scale(1.06); opacity: 1; }
+      100% { transform: translate(15px, -4px) scale(0.98); opacity: 0.88; }
+    }
+
+    @keyframes nyx-mist-drift {
+      0% { transform: translate(14px, 5px) scale(1.03); opacity: 0.6; }
+      100% { transform: translate(-15px, -6px) scale(0.95); opacity: 0.92; }
+    }
+
+    /* SVG Mestre em Alta Precisão */
+    .nyx-master-svg {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      z-index: 3;
+      overflow: visible;
+      pointer-events: none;
+      shape-rendering: geometricPrecision;
+    }
+
+    /* Rotação Contínua em Sentido Horário do Círculo Ritualístico */
+    .nyx-wheel-rotate {
+      transform-origin: 500px 264px;
+      animation: nyx-wheel-spin 64s linear infinite;
+    }
+
+    @keyframes nyx-wheel-spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* Camada das Letras com Sombra Volumétrica e Brilho Externo */
+    .nyx-typography-layer {
+      filter:
+        drop-shadow(0 16px 20px rgba(0, 0, 0, 0.96))
+        drop-shadow(0 0 18px rgba(212, 175, 55, 0.28))
+        drop-shadow(0 0 30px rgba(184, 29, 44, 0.34));
+      animation: nyx-title-radiance 5s ease-in-out infinite alternate;
+    }
+
+    @keyframes nyx-title-radiance {
+      0% {
+        filter:
+          drop-shadow(0 16px 20px rgba(0, 0, 0, 0.96))
+          drop-shadow(0 0 15px rgba(212, 175, 55, 0.22))
+          drop-shadow(0 0 26px rgba(184, 29, 44, 0.28));
+      }
+      100% {
+        filter:
+          drop-shadow(0 18px 22px rgba(0, 0, 0, 0.97))
+          drop-shadow(0 0 26px rgba(242, 204, 104, 0.42))
+          drop-shadow(0 0 38px rgba(217, 43, 58, 0.45));
+      }
+    }
+
+    /* Movimento Orgânico Horizontal + Vertical (y posicionado mais baixo para nunca cobrir o olho) */
+    .nyx-vec-n {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: nyx-drift-n 5.2s ease-in-out infinite;
+    }
+
+    .nyx-vec-y {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: nyx-drift-y 5.8s ease-in-out -1.5s infinite;
+    }
+
+    .nyx-vec-x {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: nyx-drift-x 5.5s ease-in-out -3.0s infinite;
+    }
+
+    @keyframes nyx-drift-n {
+      0%, 100% { transform: translate(-5px, -8px) rotate(-0.85deg); }
+      35% { transform: translate(4px, 5px) rotate(0.55deg); }
+      70% { transform: translate(-3px, 7px) rotate(-0.35deg); }
+    }
+
+    @keyframes nyx-drift-y {
+      0%, 100% { transform: translate(3px, 2px) rotate(0.75deg); }
+      40% { transform: translate(-4px, 14px) rotate(-0.7deg); }
+      75% { transform: translate(3px, 18px) rotate(0.45deg); }
+    }
+
+    @keyframes nyx-drift-x {
+      0%, 100% { transform: translate(5px, -7px) rotate(0.75deg); }
+      38% { transform: translate(-4px, 7px) rotate(-0.8deg); }
+      72% { transform: translate(4px, 4px) rotate(0.4deg); }
+    }
+  </style>
 </head>
 <body class="min-h-screen flex flex-col">
 
   <!-- Cabeçalho Principal Centralizado -->
-  <header class="border-b border-[var(--borda-fina)] bg-[var(--bg-surface)] backdrop-blur-md pt-7 pb-5 px-6 flex flex-col items-center justify-center gap-4 shadow-2xl">
+  <header class="border-b border-[var(--borda-fina)] bg-[var(--bg-surface)] backdrop-blur-md pt-4 pb-5 px-4 sm:px-6 flex flex-col items-center justify-center gap-2 shadow-2xl overflow-hidden">
     
-    <!-- Título Principal Animado -->
-    <h1 class="nyx-hero-title">NyX</h1>
+    <!-- Título NyX (SVG Alta Definição + Relevo Cinzelado Limpo + Líquido Fluido Carmim/Dourado) -->
+    <div class="nyx-hero-wrapper" id="nyx-hero-header">
+      <div class="nyx-hero-mist-back" aria-hidden="true"></div>
 
-    <!-- Barra de Busca + Botão do Usuário lado a lado -->
-    <div class="w-full max-w-2xl flex flex-col sm:flex-row items-center justify-center gap-3">
+      <svg class="nyx-master-svg" viewBox="0 38 1000 475" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="NyX">
+        <defs>
+          <!-- Gradiente da Roda Ritualística -->
+          <linearGradient id="nyx-wheel-carmine-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#E02D3C" stop-opacity="0.96" />
+            <stop offset="45%" stop-color="#A61926" stop-opacity="0.90" />
+            <stop offset="78%" stop-color="#F2CC68" stop-opacity="0.86" />
+            <stop offset="100%" stop-color="#7A1019" stop-opacity="0.94" />
+          </linearGradient>
+
+          <!-- Líquido Fluido Principal Animado via JS (Sangue Carmim + Ouro Líquido em Movimento) -->
+          <linearGradient id="nyx-liquid-flow-main" gradientUnits="userSpaceOnUse" x1="120" y1="160" x2="880" y2="450">
+            <stop id="nyx-liq-0" offset="0%" stop-color="#4A040B" />
+            <stop id="nyx-liq-1" offset="20%" stop-color="#E01B2E" />
+            <stop id="nyx-liq-2" offset="40%" stop-color="#FFE699" />
+            <stop id="nyx-liq-3" offset="60%" stop-color="#7D0814" />
+            <stop id="nyx-liq-4" offset="80%" stop-color="#F5D06B" />
+            <stop id="nyx-liq-5" offset="100%" stop-color="#3B0309" />
+          </linearGradient>
+
+          <!-- Segunda Camada de Corrente Sanguínea Translúcida (Direção Cruzada) -->
+          <linearGradient id="nyx-liquid-flow-overlay" gradientUnits="userSpaceOnUse" x1="880" y1="170" x2="120" y2="440">
+            <stop id="nyx-ovl-0" offset="0%" stop-color="#FFF5C0" stop-opacity="0.45" />
+            <stop id="nyx-ovl-1" offset="32%" stop-color="#C61A2B" stop-opacity="0.62" />
+            <stop id="nyx-ovl-2" offset="66%" stop-color="#E5C05C" stop-opacity="0.50" />
+            <stop id="nyx-ovl-3" offset="100%" stop-color="#5E050E" stop-opacity="0.68" />
+          </linearGradient>
+
+          <!-- Brilho Especular Deslizante (Reflexo Vivo sobre o Metal) -->
+          <linearGradient id="nyx-specular-sweep" gradientUnits="userSpaceOnUse" x1="0" y1="180" x2="260" y2="420">
+            <stop offset="0%" stop-color="#FFFBE6" stop-opacity="0" />
+            <stop offset="45%" stop-color="#FFF6CC" stop-opacity="0.45" />
+            <stop offset="55%" stop-color="#FFFFFF" stop-opacity="0.68" />
+            <stop offset="100%" stop-color="#FFFBE6" stop-opacity="0" />
+          </linearGradient>
+
+          <!-- Faceta Iluminada Suave (Relevo Cinzelado Superior/Esquerdo) -->
+          <linearGradient id="nyx-bevel-light" gradientUnits="userSpaceOnUse" x1="140" y1="170" x2="860" y2="420">
+            <stop offset="0%" stop-color="#FFF9E2" stop-opacity="0.52" />
+            <stop offset="50%" stop-color="#F2CC68" stop-opacity="0.34" />
+            <stop offset="100%" stop-color="#FFE699" stop-opacity="0.48" />
+          </linearGradient>
+
+          <!-- Faceta Sombreada Suave (Relevo Cinzelado Inferior/Direito) -->
+          <linearGradient id="nyx-bevel-shadow" gradientUnits="userSpaceOnUse" x1="160" y1="180" x2="870" y2="450">
+            <stop offset="0%" stop-color="#2B0206" stop-opacity="0.48" />
+            <stop offset="50%" stop-color="#4A060E" stop-opacity="0.40" />
+            <stop offset="100%" stop-color="#1F0104" stop-opacity="0.54" />
+          </linearGradient>
+
+          <!-- Contorno Metálico Destacado -->
+          <linearGradient id="nyx-rim-stroke-grad" gradientUnits="userSpaceOnUse" x1="130" y1="175" x2="890" y2="425">
+            <stop offset="0%" stop-color="#FFF2B2" />
+            <stop offset="35%" stop-color="#E5C05C" />
+            <stop offset="68%" stop-color="#F7DC88" />
+            <stop offset="100%" stop-color="#D4AF37" />
+          </linearGradient>
+
+          <!-- Aura e Gradientes do Olho Central (Exatamente no Centro 500, 264) -->
+          <radialGradient id="nyx-eye-aura" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#F2CC68" stop-opacity="0.52" />
+            <stop offset="52%" stop-color="#C62828" stop-opacity="0.32" />
+            <stop offset="100%" stop-color="#000000" stop-opacity="0" />
+          </radialGradient>
+
+          <radialGradient id="nyx-sclera-grad" cx="50%" cy="50%" r="55%">
+            <stop offset="0%" stop-color="#42070E" />
+            <stop offset="68%" stop-color="#1F0206" />
+            <stop offset="100%" stop-color="#0B0102" />
+          </radialGradient>
+
+          <radialGradient id="nyx-iris-grad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#1A0205" />
+            <stop offset="28%" stop-color="#A61422" />
+            <stop offset="62%" stop-color="#E62E3E" />
+            <stop offset="85%" stop-color="#F5D06B" />
+            <stop offset="100%" stop-color="#5C0810" />
+          </radialGradient>
+
+          <!-- Recorte Anatômico do Olho Perfeitamente Centralizado em (500, 264) -->
+          <clipPath id="nyx-eye-clip">
+            <path d="M 454 264 Q 500 234 546 264 Q 500 294 454 264 Z" />
+          </clipPath>
+
+          <!-- Geometria Ultra-Suave da Letra N -->
+          <path id="nyx-shape-n"
+                d="M 134 176
+                   C 192 175 230 186 248 214
+                   L 374 354
+                   L 374 212
+                   C 374 194 360 184 336 178
+                   L 432 178
+                   C 408 184 396 194 396 212
+                   L 396 402
+                   C 396 406 392 407 389 404
+                   L 254 252
+                   L 254 356
+                   C 254 372 267 380 288 385
+                   L 190 385
+                   C 212 380 226 372 226 356
+                   L 226 218
+                   C 218 194 186 182 134 178 Z" />
+
+          <!-- Geometria Ultra-Suave da Letra y -->
+          <path id="nyx-shape-y"
+                d="M 426 266
+                   L 488 266
+                   C 476 272 472 280 478 294
+                   L 504 350
+                   L 532 292
+                   C 538 280 534 272 522 266
+                   L 576 266
+                   C 560 273 552 282 544 298
+                   L 500 390
+                   C 474 442 436 472 390 490
+                   C 422 468 450 442 466 415
+                   C 463 420 461 424 459 427
+                   C 461 415 464 405 468 399
+                   C 469 401 470 403 472 405
+                   L 490 374
+                   L 450 294
+                   C 442 280 436 272 426 266 Z" />
+
+          <!-- Geometria Ultra-Suave da Letra X -->
+          <path id="nyx-shape-x"
+                d="M 578 194
+                   L 678 194
+                   C 660 200 656 208 666 222
+                   L 702 274
+                   L 744 220
+                   C 754 208 748 200 728 194
+                   L 818 194
+                   C 796 201 782 210 766 228
+                   L 714 290
+                   L 778 370
+                   C 810 402 852 414 896 418
+                   C 840 420 786 408 744 380
+                   L 730 386
+                   C 744 378 746 370 736 356
+                   L 698 306
+                   L 654 360
+                   C 644 372 650 380 672 386
+                   L 574 386
+                   C 598 380 614 370 632 350
+                   L 686 288
+                   L 626 214
+                   C 614 202 598 198 578 194 Z" />
+
+          <!-- Máscaras Anti-Aliased -->
+          <mask id="nyx-mask-n"><use href="#nyx-shape-n" fill="#FFFFFF" /></mask>
+          <mask id="nyx-mask-y"><use href="#nyx-shape-y" fill="#FFFFFF" /></mask>
+          <mask id="nyx-mask-x"><use href="#nyx-shape-x" fill="#FFFFFF" /></mask>
+        </defs>
+
+        <!-- ================================================================= -->
+        <!-- CAMADA 1: CÍRCULO RITUALÍSTICO GIRATÓRIO (CENTRO 500, 264)        -->
+        <!-- ================================================================= -->
+        <circle cx="500" cy="264" r="76" fill="url(#nyx-eye-aura)" />
+
+        <g class="nyx-wheel-rotate" stroke="url(#nyx-wheel-carmine-gold)" fill="none">
+          <circle cx="500" cy="264" r="224" stroke-width="2.3" />
+          <circle cx="500" cy="264" r="214" stroke-width="1.2" />
+          <circle cx="500" cy="264" r="164" stroke-width="1.1" stroke-dasharray="5 4" />
+          <circle cx="500" cy="264" r="86" stroke-width="1.7" />
+          <circle cx="500" cy="264" r="70" stroke-width="1.15" />
+
+          <!-- Pontas Triangulares Internas -->
+          <g stroke-width="1.35" opacity="0.92">
+            <polygon points="500,44 489,182 511,182" />
+            <polygon points="500,484 489,346 511,346" />
+            <polygon points="280,264 418,253 418,275" />
+            <polygon points="720,264 582,253 582,275" />
+
+            <polygon points="344,108 434,212 448,198" />
+            <polygon points="656,420 566,316 552,330" />
+            <polygon points="656,108 552,198 566,212" />
+            <polygon points="344,420 448,330 434,316" />
+          </g>
+
+          <!-- 12 Raios com Ilhós e Amarração -->
+          <g stroke-width="1.7">
+            <g transform="rotate(0 500 264)">
+              <line x1="500" y1="30" x2="500" y2="192" />
+              <circle cx="500" cy="37" r="4" />
+              <line x1="493" y1="54" x2="507" y2="54" />
+              <line x1="500" y1="336" x2="500" y2="498" />
+              <circle cx="500" cy="491" r="4" />
+              <line x1="493" y1="474" x2="507" y2="474" />
+            </g>
+            <g transform="rotate(30 500 264)">
+              <line x1="500" y1="30" x2="500" y2="192" />
+              <circle cx="500" cy="37" r="3.6" />
+              <line x1="493" y1="54" x2="507" y2="54" />
+              <line x1="500" y1="336" x2="500" y2="498" />
+              <circle cx="500" cy="491" r="3.6" />
+              <line x1="493" y1="474" x2="507" y2="474" />
+            </g>
+            <g transform="rotate(60 500 264)">
+              <line x1="500" y1="30" x2="500" y2="192" />
+              <circle cx="500" cy="37" r="3.6" />
+              <line x1="493" y1="54" x2="507" y2="54" />
+              <line x1="500" y1="336" x2="500" y2="498" />
+              <circle cx="500" cy="491" r="3.6" />
+              <line x1="493" y1="474" x2="507" y2="474" />
+            </g>
+            <g transform="rotate(90 500 264)">
+              <line x1="500" y1="30" x2="500" y2="192" />
+              <circle cx="500" cy="37" r="4" />
+              <line x1="493" y1="54" x2="507" y2="54" />
+              <line x1="500" y1="336" x2="500" y2="498" />
+              <circle cx="500" cy="491" r="4" />
+              <line x1="493" y1="474" x2="507" y2="474" />
+            </g>
+            <g transform="rotate(120 500 264)">
+              <line x1="500" y1="30" x2="500" y2="192" />
+              <circle cx="500" cy="37" r="3.6" />
+              <line x1="493" y1="54" x2="507" y2="54" />
+              <line x1="500" y1="336" x2="500" y2="498" />
+              <circle cx="500" cy="491" r="3.6" />
+              <line x1="493" y1="474" x2="507" y2="474" />
+            </g>
+            <g transform="rotate(150 500 264)">
+              <line x1="500" y1="30" x2="500" y2="192" />
+              <circle cx="500" cy="37" r="3.6" />
+              <line x1="493" y1="54" x2="507" y2="54" />
+              <line x1="500" y1="336" x2="500" y2="498" />
+              <circle cx="500" cy="491" r="3.6" />
+              <line x1="493" y1="474" x2="507" y2="474" />
+            </g>
+          </g>
+        </g>
+
+        <!-- ================================================================= -->
+        <!-- CAMADA 2: OLHO CENTRAL 100% CENTRALIZADO NO CÍRCULO (500, 264)    -->
+        <!-- ================================================================= -->
+        <g id="nyx-occult-eye">
+          <path d="M 451 264 Q 500 230 549 264 Q 500 298 451 264 Z"
+                fill="url(#nyx-sclera-grad)" stroke="#D92B3A" stroke-width="2.1" />
+          <path d="M 445 264 Q 500 224 555 264"
+                fill="none" stroke="#F2CC68" stroke-width="1.5" opacity="0.95" />
+          <path d="M 448 264 Q 500 301 552 264"
+                fill="none" stroke="#C62828" stroke-width="1.35" opacity="0.90" />
+
+          <g clip-path="url(#nyx-eye-clip)">
+            <g id="nyx-eye-pupil">
+              <circle cx="500" cy="264" r="20" fill="url(#nyx-iris-grad)" stroke="#F5D06B" stroke-width="1.25" />
+              <circle cx="500" cy="264" r="14" fill="none" stroke="#FF8585" stroke-width="0.95" stroke-dasharray="2.2 2.6" opacity="0.88" />
+              <circle cx="500" cy="264" r="7.8" fill="#070102" />
+              <circle cx="496.5" cy="260.5" r="2.6" fill="#FFF9DB" opacity="0.98" />
+              <circle cx="503.5" cy="267.5" r="1.2" fill="#E5C05C" opacity="0.88" />
+            </g>
+          </g>
+        </g>
+
+        <!-- ================================================================= -->
+        <!-- CAMADA 3: TIPOGRAFIA VETORIAL 3D NyX (CINZELADO LIMPO + CONTORNO) -->
+        <!-- ================================================================= -->
+        <g class="nyx-typography-layer">
+
+          <!-- 3A. LETRA "N" ESCULPIDA COM CRISTA CONTÍNUA -->
+          <g class="nyx-vec-n">
+            <g mask="url(#nyx-mask-n)">
+              <rect x="120" y="160" width="330" height="260" fill="url(#nyx-liquid-flow-main)" />
+              <rect x="120" y="160" width="330" height="260" fill="url(#nyx-liquid-flow-overlay)" />
+
+              <!-- Crista Iluminada (Metade Superior/Esquerda das Hastes) -->
+              <path d="M 134 176
+                       C 192 175 230 186 248 214
+                       L 385 372
+                       L 385 396
+                       L 240 232
+                       L 240 378
+                       L 190 385
+                       C 212 380 226 372 226 356
+                       L 226 218
+                       C 218 194 186 182 134 178 Z
+                       M 336 178 L 432 178 L 385 188 L 385 396 L 374 354 L 374 212 C 374 194 360 184 336 178 Z"
+                    fill="url(#nyx-bevel-light)" />
+
+              <!-- Crista Sombreada (Metade Inferior/Direita das Hastes) -->
+              <path d="M 240 232 L 385 396 L 396 404 L 254 252 L 254 356 C 254 372 267 380 288 385 L 240 378 Z
+                       M 385 188 L 432 178 C 408 184 396 194 396 212 L 396 404 L 385 396 Z"
+                    fill="url(#nyx-bevel-shadow)" />
+
+              <!-- Linha de Vinco Central Suave -->
+              <path d="M 240 232 L 240 376 M 240 232 L 385 395 M 385 188 L 385 395"
+                    fill="none" stroke="#FFF6CC" stroke-width="0.9" stroke-opacity="0.45" stroke-linecap="round" />
+
+              <!-- Reflexo Especular Deslizante -->
+              <rect x="120" y="160" width="330" height="260" fill="url(#nyx-specular-sweep)" />
+            </g>
+
+            <!-- Contorno Duplo Reforçado para Destacar a Letra -->
+            <use href="#nyx-shape-n" fill="none" stroke="#240206" stroke-width="3.2" stroke-opacity="0.78" stroke-linejoin="round" stroke-linecap="round" />
+            <use href="#nyx-shape-n" fill="none" stroke="url(#nyx-rim-stroke-grad)" stroke-width="1.8" stroke-opacity="0.95" stroke-linejoin="round" stroke-linecap="round" />
+          </g>
+
+          <!-- 3B. LETRA "y" ESCULPIDA COM CRISTA CONTÍNUA -->
+          <g class="nyx-vec-y">
+            <g mask="url(#nyx-mask-y)">
+              <rect x="380" y="255" width="210" height="245" fill="url(#nyx-liquid-flow-main)" />
+              <rect x="380" y="255" width="210" height="245" fill="url(#nyx-liquid-flow-overlay)" />
+
+              <!-- Crista Iluminada (Metade Esquerda do Braço e da Cauda) -->
+              <path d="M 426 266
+                       L 488 266
+                       L 462 276
+                       L 502 364
+                       C 476 420 438 456 390 490
+                       C 422 468 450 442 466 415
+                       C 463 420 461 424 459 427
+                       C 461 415 464 405 468 399
+                       L 472 405
+                       L 490 374
+                       L 450 294
+                       C 442 280 436 272 426 266 Z
+                       M 522 266 L 576 266 L 548 276 L 502 364 L 504 350 L 532 292 C 538 280 534 272 522 266 Z"
+                    fill="url(#nyx-bevel-light)" />
+
+              <!-- Crista Sombreada (Metade Direita do Braço e da Cauda) -->
+              <path d="M 462 276 L 488 266 C 476 272 472 280 478 294 L 504 350 L 502 364 Z
+                       M 548 276 L 576 266 C 560 273 552 282 544 298 L 500 390 C 474 442 436 472 390 490 C 438 456 476 420 502 364 Z"
+                    fill="url(#nyx-bevel-shadow)" />
+
+              <!-- Linha de Vinco Central Suave -->
+              <path d="M 462 276 L 502 364 M 548 276 L 502 364 C 476 420 438 456 394 487"
+                    fill="none" stroke="#FFF6CC" stroke-width="0.9" stroke-opacity="0.45" stroke-linecap="round" />
+
+              <!-- Reflexo Especular Deslizante -->
+              <rect x="380" y="255" width="210" height="245" fill="url(#nyx-specular-sweep)" />
+            </g>
+
+            <!-- Contorno Duplo Reforçado para Destacar a Letra -->
+            <use href="#nyx-shape-y" fill="none" stroke="#240206" stroke-width="3.2" stroke-opacity="0.78" stroke-linejoin="round" stroke-linecap="round" />
+            <use href="#nyx-shape-y" fill="none" stroke="url(#nyx-rim-stroke-grad)" stroke-width="1.8" stroke-opacity="0.95" stroke-linejoin="round" stroke-linecap="round" />
+          </g>
+
+          <!-- 3C. LETRA "X" ESCULPIDA COM CRISTA CONTÍNUA -->
+          <g class="nyx-vec-x">
+            <g mask="url(#nyx-mask-x)">
+              <rect x="565" y="185" width="345" height="245" fill="url(#nyx-liquid-flow-main)" />
+              <rect x="565" y="185" width="345" height="245" fill="url(#nyx-liquid-flow-overlay)" />
+
+              <!-- Crista Iluminada (Metade Superior/Esquerda das Diagonais do X) -->
+              <path d="M 578 194
+                       L 678 194
+                       L 636 204
+                       L 764 374
+                       C 798 404 844 415 896 418
+                       C 840 420 786 408 744 380
+                       L 730 386
+                       C 744 378 746 370 736 356
+                       L 698 306
+                       L 686 288
+                       L 626 214
+                       C 614 202 598 198 578 194 Z
+                       M 728 194 L 818 194 L 774 204 L 700 290 L 626 376 L 574 386 C 598 380 614 370 632 350 L 686 288 L 744 220 C 754 208 748 200 728 194 Z"
+                    fill="url(#nyx-bevel-light)" />
+
+              <!-- Crista Sombreada (Metade Inferior/Direita das Diagonais do X) -->
+              <path d="M 636 204 L 678 194 C 660 200 656 208 666 222 L 702 274 L 714 290 L 778 370 C 810 402 852 414 896 418 C 844 415 798 404 764 374 Z
+                       M 774 204 L 818 194 C 796 201 782 210 766 228 L 714 290 L 654 360 C 644 372 650 380 672 386 L 574 386 L 626 376 L 700 290 Z"
+                    fill="url(#nyx-bevel-shadow)" />
+
+              <!-- Linha de Vinco Central Suave -->
+              <path d="M 636 204 L 764 374 C 798 404 844 415 892 417 M 774 204 L 626 376"
+                    fill="none" stroke="#FFF6CC" stroke-width="0.9" stroke-opacity="0.45" stroke-linecap="round" />
+
+              <!-- Reflexo Especular Deslizante -->
+              <rect x="565" y="185" width="345" height="245" fill="url(#nyx-specular-sweep)" />
+            </g>
+
+            <!-- Contorno Duplo Reforçado para Destacar a Letra -->
+            <use href="#nyx-shape-x" fill="none" stroke="#240206" stroke-width="3.2" stroke-opacity="0.78" stroke-linejoin="round" stroke-linecap="round" />
+            <use href="#nyx-shape-x" fill="none" stroke="url(#nyx-rim-stroke-grad)" stroke-width="1.8" stroke-opacity="0.95" stroke-linejoin="round" stroke-linecap="round" />
+          </g>
+
+        </g>
+      </svg>
+
+      <div class="nyx-hero-mist-front" aria-hidden="true"></div>
+    </div>
+
+    <!-- Barra de Busca (Input Clear with Dissolve) + Botão do Usuário -->
+    <div class="w-full max-w-2xl flex flex-col sm:flex-row items-center justify-center gap-3 relative z-10">
       <div class="relative flex-1 w-full">
-        <input type="text" id="omnisearch-input" autocomplete="off" placeholder="Pesquisar no NyX (ou pressione '/')..." 
-          class="w-full bg-[#120507] border border-[var(--borda-fina)] rounded-full px-5 py-2.5 text-sm text-[var(--texto-principal)] placeholder-[var(--texto-mutado)] focus:outline-none focus:border-[var(--dourado)] focus:shadow-[0_0_16px_rgba(212,175,55,0.2)] transition">
+        <div id="omnisearch-clear-wrap" class="nyx-clear nyx-clear--omni w-full">
+          <input type="text" id="omnisearch-input" autocomplete="off">
+          <div class="nyx-clear-mirror" aria-hidden="true"></div>
+          <div class="nyx-clear-placeholder" aria-hidden="true">Pesquisar no NyX (ou pressione '/')...</div>
+          <div class="nyx-clear-glow" aria-hidden="true"></div>
+          <button type="button" class="nyx-clear-btn" aria-label="Limpar pesquisa" data-nyx-tip="Limpar busca" data-nyx-tip-side="bottom">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+              <path d="M18 6L6 18M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
         <div id="omnisearch-results" class="hidden"></div>
       </div>
 
@@ -30,14 +562,17 @@
 
   </header>
 
-  <!-- Navegação de Abas Centralizada -->
-  <nav class="bg-[#100306]/90 backdrop-blur-md border-b border-[var(--borda-fina)] px-6 flex justify-center flex-wrap gap-6 sm:gap-8 text-sm font-semibold">
-    <button data-tab="wiki" class="tab-btn py-3 border-b-2 border-[var(--dourado)] text-[var(--dourado)] whitespace-nowrap">Wiki & Cidades</button>
-    <button data-tab="grafo" class="tab-btn py-3 border-b-2 border-transparent text-[var(--texto-mutado)] hover:text-white whitespace-nowrap">Visualização em Gráfico</button>
-    <button data-tab="canvas" class="tab-btn py-3 border-b-2 border-transparent text-[var(--texto-mutado)] hover:text-white whitespace-nowrap">Quadro de Pistas</button>
-    <button data-tab="talentos" class="tab-btn py-3 border-b-2 border-transparent text-[var(--texto-mutado)] hover:text-white whitespace-nowrap">Catálogo de Talentos</button>
-    <button data-tab="ficha" class="tab-btn py-3 border-b-2 border-transparent text-[var(--texto-mutado)] hover:text-white whitespace-nowrap">Ficha do Personagem</button>
-    <button data-tab="mestre" class="tab-btn py-3 border-b-2 border-transparent text-[var(--vinho)] hover:text-[var(--dourado-claro)] whitespace-nowrap">Painel do Mestre</button>
+  <!-- Navegação de Abas Centralizada (Tabs Sliding) -->
+  <nav class="bg-[#100306]/90 backdrop-blur-md border-b border-[var(--borda-fina)] px-4 py-2 flex justify-center">
+    <div id="main-nav-tabs" role="tablist" aria-label="Navegação Principal" class="nyx-tabs nyx-tabs--nav justify-center">
+      <span class="nyx-tabs-pill" aria-hidden="true"></span>
+      <button role="tab" aria-selected="true" data-tab="wiki" class="tab-btn nyx-tab whitespace-nowrap">Wiki & Cidades</button>
+      <button role="tab" aria-selected="false" data-tab="grafo" class="tab-btn nyx-tab whitespace-nowrap">Visualização em Gráfico</button>
+      <button role="tab" aria-selected="false" data-tab="canvas" class="tab-btn nyx-tab whitespace-nowrap">Quadro de Pistas</button>
+      <button role="tab" aria-selected="false" data-tab="talentos" class="tab-btn nyx-tab whitespace-nowrap">Catálogo de Talentos</button>
+      <button role="tab" aria-selected="false" data-tab="ficha" class="tab-btn nyx-tab whitespace-nowrap">Ficha do Personagem</button>
+      <button role="tab" aria-selected="false" data-tab="mestre" class="tab-btn nyx-tab whitespace-nowrap">Painel do Mestre</button>
+    </div>
   </nav>
 
   <!-- Conteúdo Dinâmico -->
@@ -57,14 +592,153 @@
     import { initOmnisearch } from './js/modules/omnisearch.js';
     import { mountGraphView, unmountGraphView, refreshGraphView } from './js/modules/graph-view.js';
     import { mountCanvasBoard, unmountCanvasBoard } from './js/modules/canvas-board.js';
+    import {
+      bindSlidingTabs, moveSlidingPill, bindDissolveClearInput, initNyxWarmTooltips
+    } from './js/modules/transitions.js';
 
+    const navTablist = document.getElementById('main-nav-tabs');
     const tabButtons = document.querySelectorAll('.tab-btn');
     const viewContainer = document.getElementById('view-container');
     let currentTab = 'wiki';
     let currentUser = null;
 
+    initNyxWarmTooltips();
+    bindDissolveClearInput(document.getElementById('omnisearch-clear-wrap'));
+    bindSlidingTabs(navTablist);
     initOmnisearch(() => Boolean(currentUser));
 
+    // =========================================================================
+    // MOTOR DE FLUXO LÍQUIDO CONTÍNUO (SANGUE CARMIM & OURO DENTRO DAS LETRAS)
+    // =========================================================================
+    const liquidMain = document.getElementById('nyx-liquid-flow-main');
+    const liquidOverlay = document.getElementById('nyx-liquid-flow-overlay');
+    const specularSweep = document.getElementById('nyx-specular-sweep');
+
+    const mainStops = [
+      document.getElementById('nyx-liq-0'),
+      document.getElementById('nyx-liq-1'),
+      document.getElementById('nyx-liq-2'),
+      document.getElementById('nyx-liq-3'),
+      document.getElementById('nyx-liq-4'),
+      document.getElementById('nyx-liq-5')
+    ];
+
+    if (liquidMain && liquidOverlay && specularSweep) {
+      const animateLiquidFlow = (now) => {
+        const t = now * 0.0018;
+
+        // 1. Onda fluida percorrendo as letras
+        const waveX1 = 100 + Math.sin(t * 0.95) * 240;
+        const waveY1 = 160 + Math.cos(t * 1.15) * 120;
+        const waveX2 = 900 + Math.cos(t * 0.9) * 240;
+        const waveY2 = 440 + Math.sin(t * 1.1) * 120;
+
+        liquidMain.setAttribute('x1', waveX1.toFixed(1));
+        liquidMain.setAttribute('y1', waveY1.toFixed(1));
+        liquidMain.setAttribute('x2', waveX2.toFixed(1));
+        liquidMain.setAttribute('y2', waveY2.toFixed(1));
+
+        // 2. Pulsação interna das veias de sangue e ouro líquido
+        if (mainStops[1] && mainStops[2] && mainStops[3] && mainStops[4]) {
+          const s1 = 18 + Math.sin(t * 1.8) * 10;
+          const s2 = 40 + Math.cos(t * 1.6) * 11;
+          const s3 = 62 + Math.sin(t * 1.7 + 1.2) * 11;
+          const s4 = 82 + Math.cos(t * 1.9 + 0.8) * 9;
+
+          mainStops[1].setAttribute('offset', `${s1.toFixed(1)}%`);
+          mainStops[2].setAttribute('offset', `${s2.toFixed(1)}%`);
+          mainStops[3].setAttribute('offset', `${s3.toFixed(1)}%`);
+          mainStops[4].setAttribute('offset', `${s4.toFixed(1)}%`);
+        }
+
+        // 3. Corrente cruzada secundária
+        const ovlX1 = 880 + Math.sin(t * 1.25 + 1.5) * 260;
+        const ovlY1 = 170 + Math.cos(t * 1.0) * 130;
+        const ovlX2 = 120 + Math.cos(t * 1.2) * 260;
+        const ovlY2 = 430 + Math.sin(t * 0.95) * 130;
+
+        liquidOverlay.setAttribute('x1', ovlX1.toFixed(1));
+        liquidOverlay.setAttribute('y1', ovlY1.toFixed(1));
+        liquidOverlay.setAttribute('x2', ovlX2.toFixed(1));
+        liquidOverlay.setAttribute('y2', ovlY2.toFixed(1));
+
+        // 4. Feixe de brilho especular deslizando continuamente
+        const sweepCycle = (now * 0.00034) % 1;
+        const sweepStart = -220 + sweepCycle * 1350;
+        specularSweep.setAttribute('x1', sweepStart.toFixed(1));
+        specularSweep.setAttribute('x2', (sweepStart + 240).toFixed(1));
+
+        requestAnimationFrame(animateLiquidFlow);
+      };
+
+      requestAnimationFrame(animateLiquidFlow);
+    }
+
+    // =========================================================================
+    // RASTREAMENTO INTERATIVO DO OLHO CENTRAL (Mouse + Clique/Toque Mobile)
+    // =========================================================================
+    const occultEye = document.getElementById('nyx-occult-eye');
+    const eyePupil = document.getElementById('nyx-eye-pupil');
+
+    if (occultEye && eyePupil) {
+      const MAX_X = 16;
+      const MAX_Y = 7.5;
+      let targetX = 0;
+      let targetY = 0;
+      let currentX = 0;
+      let currentY = 0;
+
+      const updateEyeGaze = (clientX, clientY) => {
+        const eyeRect = occultEye.getBoundingClientRect();
+        const eyeCenterX = eyeRect.left + eyeRect.width / 2;
+        const eyeCenterY = eyeRect.top + eyeRect.height / 2;
+
+        const dx = clientX - eyeCenterX;
+        const dy = clientY - eyeCenterY;
+        const distance = Math.hypot(dx, dy);
+
+        if (distance > 1) {
+          const intensity = Math.min(1, distance / 240);
+          targetX = (dx / distance) * MAX_X * intensity;
+          targetY = (dy / distance) * MAX_Y * intensity;
+        } else {
+          targetX = 0;
+          targetY = 0;
+        }
+      };
+
+      window.addEventListener('pointermove', (e) => {
+        updateEyeGaze(e.clientX, e.clientY);
+      }, { passive: true });
+
+      window.addEventListener('pointerdown', (e) => {
+        updateEyeGaze(e.clientX, e.clientY);
+      }, { passive: true });
+
+      window.addEventListener('touchstart', (e) => {
+        if (e.touches && e.touches[0]) {
+          updateEyeGaze(e.touches[0].clientX, e.touches[0].clientY);
+        }
+      }, { passive: true });
+
+      window.addEventListener('touchmove', (e) => {
+        if (e.touches && e.touches[0]) {
+          updateEyeGaze(e.touches[0].clientX, e.touches[0].clientY);
+        }
+      }, { passive: true });
+
+      const animatePupil = () => {
+        currentX += (targetX - currentX) * 0.15;
+        currentY += (targetY - currentY) * 0.15;
+        eyePupil.setAttribute('transform', `translate(${currentX.toFixed(2)}, ${currentY.toFixed(2)})`);
+        requestAnimationFrame(animatePupil);
+      };
+      requestAnimationFrame(animatePupil);
+    }
+
+    // =========================================================================
+    // NAVEGAÇÃO DE ABAS E SINCRONIZAÇÃO DO NYX
+    // =========================================================================
     function switchTab(tabName) {
       if (currentTab === 'grafo' && tabName !== 'grafo') unmountGraphView();
       if (currentTab === 'canvas' && tabName !== 'canvas') unmountCanvasBoard();
@@ -72,12 +746,8 @@
       currentTab = tabName;
       tabButtons.forEach(btn => {
         const isActive = btn.dataset.tab === tabName;
-        btn.classList.toggle('border-[var(--dourado)]', isActive);
-        btn.classList.toggle('text-[var(--dourado)]', isActive);
-        btn.classList.toggle('border-transparent', !isActive);
-        if (btn.dataset.tab !== 'mestre') {
-          btn.classList.toggle('text-[var(--texto-mutado)]', !isActive);
-        }
+        btn.setAttribute('aria-selected', String(isActive));
+        if (isActive) moveSlidingPill(navTablist, btn, false);
       });
 
       if (!currentUser) {

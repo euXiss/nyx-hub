@@ -7,6 +7,9 @@ import {
   initTagsSync, getAllTags, openTagsModal, openTagFilterModal, DISTRITOS_SUGESTOES
 } from './tags-manager.js';
 import { isMaster } from './roles-manager.js';
+import {
+  bindSlidingTabs, moveSlidingPill, bindMorphMenu, attachGradualBlur, createNyxStepper
+} from './transitions.js';
 
 let wikiEntries = [];
 let activeCategory = 'Todos';
@@ -32,7 +35,6 @@ function stripLinkBrackets(str = '') {
   return String(str).replace(/\[\[([^\[\]\n]+)\]\]/g, '$1');
 }
 
-/* Auxiliares da Árvore de Sublocais */
 function getAncestorChain(item) {
   const chain = [];
   const visited = new Set([item?.id]);
@@ -89,9 +91,9 @@ function renderLinkedText(rawText = '') {
       w => escapeHtml(w.title).trim().toLowerCase() === cleanTarget.toLowerCase()
     );
     if (found) {
-      return `<button type="button" class="nyx-wikilink" data-open-wikilink="${found.id}" title="Abrir registro: ${escapeHtml(found.title)}">${cleanTarget}</button>`;
+      return `<button type="button" class="nyx-wikilink" data-open-wikilink="${found.id}" data-nyx-tip="Abrir: ${escapeHtml(found.title)}">${cleanTarget}</button>`;
     }
-    return `<button type="button" class="nyx-wikilink-missing" data-create-wikilink="${cleanTarget}" title="Registro ainda não existe — clique para criar">${cleanTarget}</button>`;
+    return `<button type="button" class="nyx-wikilink-missing" data-create-wikilink="${cleanTarget}" data-nyx-tip="Criar registro inexistente">${cleanTarget}</button>`;
   });
 }
 
@@ -186,13 +188,13 @@ export function refreshWikiUI() {
 export function mountWikiView(container) {
   container.innerHTML = `
     <div class="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-[var(--borda-fina)]">
-      <div id="wiki-filters" class="flex flex-wrap gap-2"></div>
+      <div id="wiki-filters" role="tablist" aria-label="Categorias da Wiki" class="nyx-tabs"></div>
       <div class="flex flex-wrap items-center gap-2">
         <div id="tag-filter-control" class="flex items-center gap-1.5"></div>
-        <button id="btn-manage-tags" class="px-3.5 py-2 rounded-lg bg-[var(--bg-card)] hover:border-[var(--dourado)] border border-[var(--borda-fina)] text-[var(--dourado-claro)] text-xs font-semibold transition">
+        <button id="btn-manage-tags" data-nyx-tip="Criar e editar tags do universo" class="px-3.5 py-2 rounded-lg bg-[var(--bg-card)] hover:border-[var(--dourado)] border border-[var(--borda-fina)] text-[var(--dourado-claro)] text-xs font-semibold transition">
           🏷️ Gerenciar Tags
         </button>
-        <button id="btn-new-wiki" class="px-4 py-2 rounded-lg bg-[var(--vinho-escuro)] hover:bg-[var(--vinho)] border border-[var(--dourado)] text-[var(--dourado-claro)] text-sm font-bold transition shadow">
+        <button id="btn-new-wiki" data-nyx-tip="Adicionar local, NPC, facção ou regra" class="px-4 py-2 rounded-lg bg-[var(--vinho-escuro)] hover:bg-[var(--vinho)] border border-[var(--dourado)] text-[var(--dourado-claro)] text-sm font-bold transition shadow">
           + Novo Registro na Wiki
         </button>
       </div>
@@ -203,48 +205,102 @@ export function mountWikiView(container) {
     <div id="wiki-list" class="wiki-grid">
       <p class="text-sm text-[var(--texto-mutado)]">Sincronizando arquivos do universo...</p>
     </div>
+
+    <!-- Plus to Menu Morph (Acesso Rápido Flutuante) -->
+    <div class="nyx-morph-anchor" aria-label="Ações rápidas da Wiki">
+      <div id="wiki-morph-fab" class="nyx-morph" data-open="false">
+        <div class="nyx-morph-menu">
+          <button type="button" data-morph-action="new-wiki" class="nyx-morph-item">
+            <span class="text-[var(--dourado)]">✦</span>
+            <span>Novo Registro na Wiki</span>
+          </button>
+          <button type="button" data-morph-action="manage-tags" class="nyx-morph-item">
+            <span class="text-[var(--dourado)]">🏷️</span>
+            <span>Gerenciar Tags</span>
+          </button>
+          <button type="button" data-morph-action="filter-tags" class="nyx-morph-item">
+            <span class="text-[var(--dourado)]">🔍</span>
+            <span>Filtrar por Tags</span>
+          </button>
+        </div>
+        <button type="button" class="nyx-morph-trigger" aria-expanded="false" aria-label="Abrir ações rápidas" data-nyx-tip="Ações rápidas da Wiki">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+            <path d="M12 5v14M5 12h14"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
   `;
 
   document.getElementById('btn-manage-tags').addEventListener('click', () => openTagsModal());
   document.getElementById('btn-new-wiki').addEventListener('click', () => openEditorModal());
+
+  const morphEl = document.getElementById('wiki-morph-fab');
+  bindMorphMenu(morphEl);
+  morphEl.querySelectorAll('[data-morph-action]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const act = btn.dataset.morphAction;
+      if (act === 'new-wiki') openEditorModal();
+      else if (act === 'manage-tags') openTagsModal();
+      else if (act === 'filter-tags') {
+        openTagFilterModal(activeTag, (selected) => {
+          activeTag = selected;
+          renderTagFilterButton();
+          renderCards();
+        });
+      }
+    });
+  });
 
   initTagsSync(() => {
     if (document.getElementById('tag-filter-control')) renderTagFilterButton();
   });
 
   initWikiSync();
-  renderFilters();
+  renderFilters(true);
   renderTagFilterButton();
   renderLocationTree();
   renderCards();
 }
 
-function renderFilters() {
+function renderFilters(instant = false) {
   const filterBar = document.getElementById('wiki-filters');
   if (!filterBar) return;
 
-  filterBar.innerHTML = CATEGORIES.map(cat => {
-    const active = cat === activeCategory;
-    return `
-      <button data-cat="${cat}" class="wiki-cat-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition ${
-        active
-          ? 'bg-[var(--vinho-escuro)] border-[var(--dourado)] text-[var(--dourado)]'
-          : 'bg-[var(--bg-card)] border-[var(--borda-fina)] text-[var(--texto-mutado)] hover:text-[var(--texto-principal)]'
-      }">${cat}</button>
+  if (!filterBar.querySelector('.nyx-tabs-pill')) {
+    filterBar.innerHTML = `
+      <span class="nyx-tabs-pill" aria-hidden="true"></span>
+      ${CATEGORIES.map(cat => `
+        <button role="tab" aria-selected="${cat === activeCategory}" data-cat="${cat}" class="wiki-cat-btn nyx-tab">${cat}</button>
+      `).join('')}
     `;
-  }).join('');
 
-  filterBar.querySelectorAll('.wiki-cat-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      activeCategory = btn.dataset.cat;
-      if (activeCategory !== 'Locais') {
-        activeLocationScopeId = null;
-      }
-      renderFilters();
-      renderLocationTree();
-      renderCards();
+    filterBar.querySelectorAll('.wiki-cat-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activeCategory = btn.dataset.cat;
+        if (activeCategory !== 'Locais') {
+          activeLocationScopeId = null;
+        }
+        renderFilters(false);
+        renderLocationTree();
+        renderCards();
+      });
     });
+
+    bindSlidingTabs(filterBar);
+    return;
+  }
+
+  let activeBtn = null;
+  filterBar.querySelectorAll('.wiki-cat-btn').forEach(btn => {
+    const isActive = btn.dataset.cat === activeCategory;
+    btn.setAttribute('aria-selected', String(isActive));
+    if (isActive) activeBtn = btn;
   });
+
+  if (activeBtn) {
+    moveSlidingPill(filterBar, activeBtn, instant);
+  }
 }
 
 /* Árvore Interativa de Cidades -> Distritos -> Sublocais */
@@ -310,7 +366,7 @@ function renderLocationTree() {
           </div>
 
           <div class="flex items-center gap-2 text-[10px] font-mono-code shrink-0">
-            <button type="button" data-tree-add-child="${node.id}" title="Criar distrito ou sublocal dentro de ${escapeHtml(node.title)}"
+            <button type="button" data-tree-add-child="${node.id}" data-nyx-tip="Criar sublocal dentro de ${escapeHtml(node.title)}"
               class="text-[var(--dourado)] hover:underline">
               + Sublocal
             </button>
@@ -352,11 +408,22 @@ function renderLocationTree() {
         </div>
       </div>
 
-      <div class="space-y-1 max-h-60 overflow-y-auto pr-1">
+      <div id="wiki-location-tree-scroll" class="space-y-1 max-h-60 overflow-y-auto pr-1">
         ${rootLocals.map(root => renderBranch(root, 0)).join('')}
       </div>
     </div>
   `;
+
+  const treeScroll = document.getElementById('wiki-location-tree-scroll');
+  if (treeScroll) {
+    attachGradualBlur(treeScroll, {
+      position: 'bottom',
+      height: '2.4rem',
+      strength: 1.1,
+      tint: 'rgba(21, 6, 9, 0.94)',
+      sticky: true
+    });
+  }
 
   wrap.querySelectorAll('[data-tree-toggle]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -401,7 +468,7 @@ function renderTagFilterButton() {
   if (!wrap) return;
 
   wrap.innerHTML = `
-    <button id="btn-open-tag-filter" class="px-3.5 py-2 rounded-lg border text-xs font-semibold transition ${
+    <button id="btn-open-tag-filter" data-nyx-tip="Filtrar registros por tag específica" class="px-3.5 py-2 rounded-lg border text-xs font-semibold transition ${
       activeTag
         ? 'bg-[var(--vinho-escuro)] border-[var(--dourado)] text-[var(--dourado)]'
         : 'bg-[var(--bg-card)] border-[var(--borda-fina)] text-[var(--dourado-claro)] hover:border-[var(--dourado)]'
@@ -409,7 +476,7 @@ function renderTagFilterButton() {
       ${activeTag ? `🔍 Tag: #${escapeHtml(activeTag)}` : '🔍 Filtrar por Tags'}
     </button>
     ${activeTag ? `
-      <button id="btn-reset-tag-filter" title="Limpar filtro de tag" class="px-2.5 py-2 rounded-lg bg-[var(--bg-card)] border border-red-500/40 text-red-400 hover:bg-[var(--vinho-escuro)] text-xs font-bold transition">
+      <button id="btn-reset-tag-filter" data-nyx-tip="Remover filtro de tag" class="px-2.5 py-2 rounded-lg bg-[var(--bg-card)] border border-red-500/40 text-red-400 hover:bg-[var(--vinho-escuro)] text-xs font-bold transition">
         ✕
       </button>
     ` : ''}
@@ -545,7 +612,7 @@ function renderCards() {
     activeCategory = 'Todos';
     activeLocationScopeId = null;
     activeTag = b.dataset.jumpTag;
-    renderFilters();
+    renderFilters(false);
     renderTagFilterButton();
     renderLocationTree();
     renderCards();
@@ -579,7 +646,7 @@ export function openReaderModal(id) {
   const modalRoot = document.getElementById('modal-root');
   modalRoot.innerHTML = `
     <div class="nyx-modal-backdrop" id="reader-backdrop">
-      <div class="bg-[var(--bg-surface)] border border-[var(--dourado)] rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+      <div id="reader-scroll-card" class="bg-[var(--bg-surface)] border border-[var(--dourado)] rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
         ${item.imageUrl ? `<div class="wiki-reader-media-wrap"><img src="${item.imageUrl}" alt="${escapeHtml(item.title)}" class="wiki-reader-media"></div>` : ''}
         <div class="p-6 md:p-8">
           <div class="flex items-center justify-between mb-3">
@@ -592,7 +659,7 @@ export function openReaderModal(id) {
                 </button>
               ` : ''}
             </div>
-            <button id="close-reader" class="text-sm text-[var(--texto-mutado)] hover:text-[var(--dourado)]">✕ Fechar</button>
+            <button id="close-reader" data-nyx-kbd="Esc" data-nyx-tip="Fechar leitura" class="text-sm text-[var(--texto-mutado)] hover:text-[var(--dourado)]">✕ Fechar</button>
           </div>
 
           ${ancestors.length > 0 ? `
@@ -701,6 +768,17 @@ export function openReaderModal(id) {
     </div>
   `;
 
+  const readerCard = document.getElementById('reader-scroll-card');
+  if (readerCard) {
+    attachGradualBlur(readerCard, {
+      position: 'bottom',
+      height: '3.5rem',
+      strength: 1.35,
+      tint: 'rgba(16, 4, 7, 0.94)',
+      sticky: true
+    });
+  }
+
   const addSublocalBtn = document.getElementById('btn-reader-add-sublocal');
   if (addSublocalBtn) {
     addSublocalBtn.addEventListener('click', () => {
@@ -733,7 +811,7 @@ export function openReaderModal(id) {
       activeCategory = 'Todos';
       activeLocationScopeId = null;
       activeTag = btn.dataset.readerTag;
-      renderFilters();
+      renderFilters(false);
       renderTagFilterButton();
       renderLocationTree();
       renderCards();
@@ -843,6 +921,7 @@ export function attachWikiLinkAutocomplete(textarea) {
   });
 }
 
+/* Modal de Criação/Edição com Spring Stepper de 3 Etapas */
 export function openEditorModal(existing = null, prefillTitle = '', prefillOptions = {}) {
   const modalRoot = document.getElementById('modal-root');
   let currentImage = existing?.imageUrl || '';
@@ -863,104 +942,142 @@ export function openEditorModal(existing = null, prefillTitle = '', prefillOptio
 
   modalRoot.innerHTML = `
     <div class="nyx-modal-backdrop" id="editor-backdrop">
-      <div class="bg-[var(--bg-surface)] border border-[var(--dourado)] rounded-xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
+      <div id="wiki-editor-stepper" class="bg-[var(--bg-surface)] border border-[var(--dourado)] rounded-xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
         <div class="flex items-center justify-between border-b border-[var(--borda-fina)] pb-3 mb-4">
           <h3 class="text-xl font-bold text-[var(--dourado)]">${existing ? 'Editar Registro' : 'Novo Registro na Wiki'}</h3>
           <button id="close-editor" class="text-sm text-[var(--texto-mutado)] hover:text-white">✕</button>
         </div>
 
-        <form id="wiki-editor-form" class="space-y-4">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs text-[var(--dourado-claro)] mb-1">Categoria</label>
-              <select id="wiki-cat" class="w-full bg-[var(--bg-card)] text-[var(--texto-principal)] border border-[var(--borda-fina)] rounded-lg px-3 py-2 text-sm focus:border-[var(--dourado)] focus:outline-none">
-                ${CATEGORIES.filter(c => c !== 'Todos').map(c => `<option value="${c}" ${initialCategory === c ? 'selected' : ''}>${c}</option>`).join('')}
-              </select>
-            </div>
-            <div>
-              <label class="block text-xs text-[var(--dourado-claro)] mb-1">Local Pai (Árvore Cidade › Distrito)</label>
-              <select id="wiki-parent-id" class="w-full bg-[var(--bg-card)] text-[var(--texto-principal)] border border-[var(--borda-fina)] rounded-lg px-3 py-2 text-sm focus:border-[var(--dourado)] focus:outline-none">
-                <option value="">— Nenhum (Cidade / Raiz) —</option>
-                ${availableParents.map(p => `<option value="${p.id}" ${initialParentId === p.id ? 'selected' : ''}>${escapeHtml(p.path)}</option>`).join('')}
-              </select>
-            </div>
-          </div>
+        <!-- Trilho do Spring Stepper -->
+        <div class="nyx-stepper-track mb-5">
+          <span class="nyx-stepper-glider" aria-hidden="true"></span>
+        </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs text-[var(--dourado-claro)] mb-1">Título do Registro</label>
-              <input type="text" id="wiki-title" required value="${escapeHtml(initialTitle)}" placeholder="Ex: Enseada da Gamboa ou Diovan Larkin"
-                class="w-full bg-[var(--bg-card)] text-[var(--texto-principal)] border border-[var(--borda-fina)] rounded-lg px-3 py-2 text-sm focus:border-[var(--dourado)] focus:outline-none">
-            </div>
-            <div>
-              <label class="block text-xs text-[var(--dourado-claro)] mb-1">Subtítulo / Região (Opcional)</label>
-              <input type="text" id="wiki-sub" list="distritos-list" value="${escapeHtml(existing?.subtitle || '')}" placeholder="Ex: Distrito Portuário, Conselheiro..."
-                class="w-full bg-[var(--bg-card)] text-[var(--texto-principal)] border border-[var(--borda-fina)] rounded-lg px-3 py-2 text-sm focus:border-[var(--dourado)] focus:outline-none">
-              <datalist id="distritos-list">
-                ${DISTRITOS_SUGESTOES.map(d => `<option value="${escapeHtml(d)}">`).join('')}
-              </datalist>
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-xs text-[var(--dourado-claro)] mb-1.5">Tags Vinculadas (Clique para marcar)</label>
-            <div id="editor-tags-picker" class="flex flex-wrap gap-1.5 p-2.5 rounded-lg bg-[var(--bg-card)] border border-[var(--borda-fina)]">
-              ${availableTags.length === 0
-                ? `<span class="text-xs text-[var(--texto-mutado)]">Nenhuma tag criada ainda. Use "🏷️ Gerenciar Tags" na tela anterior.</span>`
-                : availableTags.map(t => `
-                  <button type="button" data-pick-tag="${escapeHtml(t.name)}" class="nyx-tag-selectable ${selectedTags.includes(t.name) ? 'selected' : ''}">
-                    #${escapeHtml(t.name)}
-                  </button>
-                `).join('')
-              }
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-xs text-[var(--dourado-claro)] mb-1">Imagem (Envie do PC ou cole um Link)</label>
-            <div class="flex flex-col sm:flex-row gap-2">
-              <input type="file" id="wiki-file" accept="image/*" class="text-xs text-[var(--texto-mutado)] file:mr-2 file:py-1.5 file:px-3 file:rounded file:border file:border-[var(--borda-fina)] file:bg-[var(--bg-card)] file:text-[var(--dourado-claro)]">
-              <input type="url" id="wiki-url" value="${currentImage.startsWith('http') ? escapeHtml(currentImage) : ''}" placeholder="Ou cole URL https://..."
-                class="flex-1 bg-[var(--bg-card)] text-[var(--texto-principal)] border border-[var(--borda-fina)] rounded-lg px-3 py-1.5 text-xs focus:border-[var(--dourado)] focus:outline-none">
-            </div>
-            <img id="wiki-preview" src="${currentImage}" class="${currentImage ? '' : 'hidden'} mt-2 max-h-36 rounded border border-[var(--borda-fina)] object-contain bg-[#09090c]">
-          </div>
-
-          <div>
-            <div class="flex items-center justify-between mb-1">
-              <label class="text-xs text-[var(--dourado-claro)]">Descrição Pública (Visível para todos)</label>
-              <span class="text-[10px] font-mono-code text-[var(--texto-mutado)]">Digite <strong class="text-[var(--dourado)]">[[</strong> para conectar wikis</span>
-            </div>
-            <textarea id="wiki-content" rows="4" required placeholder="Escreva a história, características ou use [[Nome da Wiki]] para criar links..."
-              class="w-full bg-[var(--bg-card)] text-[var(--texto-principal)] border border-[var(--borda-fina)] rounded-lg p-3 text-sm focus:border-[var(--dourado)] focus:outline-none">${escapeHtml(existing?.content || '')}</textarea>
-          </div>
-
-          ${masterMode ? `
-            <div class="p-3.5 rounded-xl border border-dashed border-[var(--vinho)] bg-[#100305] space-y-2.5">
-              <div class="flex items-center justify-between">
-                <label class="text-xs font-bold text-[var(--dourado)]">🔒 Segredo / Anotação do Mestre</label>
-                <label class="flex items-center gap-1.5 text-xs text-[var(--dourado-claro)] cursor-pointer">
-                  <input type="checkbox" id="wiki-secret-revealed" ${existing?.secretRevealed ? 'checked' : ''} class="accent-[#D4AF37]">
-                  Já revelado aos jogadores
-                </label>
+        <form id="wiki-editor-form" novalidate>
+          <div class="nyx-stepper-viewport">
+            <!-- ETAPA 1: IDENTIDADE -->
+            <div id="editor-step-0" class="space-y-4">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs text-[var(--dourado-claro)] mb-1">Categoria</label>
+                  <select id="wiki-cat" class="w-full bg-[var(--bg-card)] text-[var(--texto-principal)] border border-[var(--borda-fina)] rounded-lg px-3 py-2 text-sm focus:border-[var(--dourado)] focus:outline-none">
+                    ${CATEGORIES.filter(c => c !== 'Todos').map(c => `<option value="${c}" ${initialCategory === c ? 'selected' : ''}>${c}</option>`).join('')}
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs text-[var(--dourado-claro)] mb-1">Local Pai (Árvore Cidade › Distrito)</label>
+                  <select id="wiki-parent-id" class="w-full bg-[var(--bg-card)] text-[var(--texto-principal)] border border-[var(--borda-fina)] rounded-lg px-3 py-2 text-sm focus:border-[var(--dourado)] focus:outline-none">
+                    <option value="">— Nenhum (Cidade / Raiz) —</option>
+                    ${availableParents.map(p => `<option value="${p.id}" ${initialParentId === p.id ? 'selected' : ''}>${escapeHtml(p.path)}</option>`).join('')}
+                  </select>
+                </div>
               </div>
-              <div class="relative">
-                <textarea id="wiki-master-secret" rows="3" placeholder="Intenções ocultas, segredos de clã ou pistas com [[Links]]..."
-                  class="w-full bg-[var(--bg-card)] text-[var(--texto-principal)] border border-[var(--borda-fina)] rounded-lg p-3 text-sm focus:border-[var(--dourado)] focus:outline-none">${escapeHtml(existing?.masterSecret || '')}</textarea>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs text-[var(--dourado-claro)] mb-1">Título do Registro *</label>
+                  <input type="text" id="wiki-title" value="${escapeHtml(initialTitle)}" placeholder="Ex: Enseada da Gamboa ou Diovan Larkin"
+                    class="w-full bg-[var(--bg-card)] text-[var(--texto-principal)] border border-[var(--borda-fina)] rounded-lg px-3 py-2 text-sm focus:border-[var(--dourado)] focus:outline-none">
+                </div>
+                <div>
+                  <label class="block text-xs text-[var(--dourado-claro)] mb-1">Subtítulo / Região (Opcional)</label>
+                  <input type="text" id="wiki-sub" list="distritos-list" value="${escapeHtml(existing?.subtitle || '')}" placeholder="Ex: Distrito Portuário, Conselheiro..."
+                    class="w-full bg-[var(--bg-card)] text-[var(--texto-principal)] border border-[var(--borda-fina)] rounded-lg px-3 py-2 text-sm focus:border-[var(--dourado)] focus:outline-none">
+                  <datalist id="distritos-list">
+                    ${DISTRITOS_SUGESTOES.map(d => `<option value="${escapeHtml(d)}">`).join('')}
+                  </datalist>
+                </div>
               </div>
             </div>
-          ` : ''}
 
-          <div class="flex justify-end gap-3 pt-2">
-            <button type="button" id="cancel-editor" class="px-4 py-2 rounded-lg text-xs text-[var(--texto-mutado)] hover:text-white">Cancelar</button>
-            <button type="submit" id="save-wiki-btn" class="px-5 py-2 rounded-lg bg-[var(--vinho-escuro)] hover:bg-[var(--vinho)] border border-[var(--dourado)] text-[var(--dourado-claro)] font-bold text-sm transition">
-              Salvar no NyX
-            </button>
+            <!-- ETAPA 2: VÍNCULOS & MÍDIA -->
+            <div id="editor-step-1" class="hidden space-y-4">
+              <div>
+                <label class="block text-xs text-[var(--dourado-claro)] mb-1.5">Tags Vinculadas (Clique para marcar)</label>
+                <div id="editor-tags-picker" class="flex flex-wrap gap-1.5 p-2.5 rounded-lg bg-[var(--bg-card)] border border-[var(--borda-fina)]">
+                  ${availableTags.length === 0
+                    ? `<span class="text-xs text-[var(--texto-mutado)]">Nenhuma tag criada ainda. Use "🏷️ Gerenciar Tags" na tela anterior.</span>`
+                    : availableTags.map(t => `
+                      <button type="button" data-pick-tag="${escapeHtml(t.name)}" class="nyx-tag-selectable ${selectedTags.includes(t.name) ? 'selected' : ''}">
+                        #${escapeHtml(t.name)}
+                      </button>
+                    `).join('')
+                  }
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs text-[var(--dourado-claro)] mb-1">Imagem (Envie do PC ou cole um Link)</label>
+                <div class="flex flex-col sm:flex-row gap-2">
+                  <input type="file" id="wiki-file" accept="image/*" class="text-xs text-[var(--texto-mutado)] file:mr-2 file:py-1.5 file:px-3 file:rounded file:border file:border-[var(--borda-fina)] file:bg-[var(--bg-card)] file:text-[var(--dourado-claro)]">
+                  <input type="url" id="wiki-url" value="${currentImage.startsWith('http') ? escapeHtml(currentImage) : ''}" placeholder="Ou cole URL https://..."
+                    class="flex-1 bg-[var(--bg-card)] text-[var(--texto-principal)] border border-[var(--borda-fina)] rounded-lg px-3 py-1.5 text-xs focus:border-[var(--dourado)] focus:outline-none">
+                </div>
+                <img id="wiki-preview" src="${currentImage}" class="${currentImage ? '' : 'hidden'} mt-2 max-h-40 rounded border border-[var(--borda-fina)] object-contain bg-[#09090c]">
+              </div>
+            </div>
+
+            <!-- ETAPA 3: CONTEÚDO & SEGREDOS -->
+            <div id="editor-step-2" class="hidden space-y-4">
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="text-xs text-[var(--dourado-claro)]">Descrição Pública (Visível para todos) *</label>
+                  <span class="text-[10px] font-mono-code text-[var(--texto-mutado)]">Digite <strong class="text-[var(--dourado)]">[[</strong> para conectar wikis</span>
+                </div>
+                <textarea id="wiki-content" rows="4" placeholder="Escreva a história, características ou use [[Nome da Wiki]] para criar links..."
+                  class="w-full bg-[var(--bg-card)] text-[var(--texto-principal)] border border-[var(--borda-fina)] rounded-lg p-3 text-sm focus:border-[var(--dourado)] focus:outline-none">${escapeHtml(existing?.content || '')}</textarea>
+              </div>
+
+              ${masterMode ? `
+                <div class="p-3.5 rounded-xl border border-dashed border-[var(--vinho)] bg-[#100305] space-y-2.5">
+                  <div class="flex items-center justify-between">
+                    <label class="text-xs font-bold text-[var(--dourado)]">🔒 Segredo / Anotação do Mestre</label>
+                    <label class="flex items-center gap-1.5 text-xs text-[var(--dourado-claro)] cursor-pointer">
+                      <input type="checkbox" id="wiki-secret-revealed" ${existing?.secretRevealed ? 'checked' : ''} class="accent-[#D4AF37]">
+                      Já revelado aos jogadores
+                    </label>
+                  </div>
+                  <div class="relative">
+                    <textarea id="wiki-master-secret" rows="3" placeholder="Intenções ocultas, segredos de clã ou pistas com [[Links]]..."
+                      class="w-full bg-[var(--bg-card)] text-[var(--texto-principal)] border border-[var(--borda-fina)] rounded-lg p-3 text-sm focus:border-[var(--dourado)] focus:outline-none">${escapeHtml(existing?.masterSecret || '')}</textarea>
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+
+          <!-- Navegação do Stepper -->
+          <div class="flex items-center justify-between gap-3 pt-4 mt-5 border-t border-[var(--borda-fina)]">
+            <div class="flex items-center gap-2">
+              <button type="button" data-stepper-back class="hidden px-3.5 py-2 rounded-lg bg-[var(--bg-card)] border border-[var(--borda-fina)] text-xs font-semibold text-[var(--dourado-claro)]">
+                ← Anterior
+              </button>
+              <button type="button" id="cancel-editor" class="px-3 py-2 rounded-lg text-xs text-[var(--texto-mutado)] hover:text-white">
+                Cancelar
+              </button>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button type="button" data-stepper-next class="px-5 py-2 rounded-lg bg-[var(--vinho-escuro)] hover:bg-[var(--vinho)] border border-[var(--dourado)] text-[var(--dourado-claro)] font-bold text-xs">
+                Continuar →
+              </button>
+              <button type="submit" data-stepper-submit id="save-wiki-btn" class="hidden px-5 py-2 rounded-lg bg-[var(--vinho-escuro)] hover:bg-[var(--vinho)] border border-[var(--dourado)] text-[var(--dourado-claro)] font-bold text-sm transition">
+                Salvar no NyX
+              </button>
+            </div>
           </div>
         </form>
       </div>
     </div>
   `;
+
+  const stepper = createNyxStepper(document.getElementById('wiki-editor-stepper'), {
+    steps: [
+      { title: 'Identidade', el: document.getElementById('editor-step-0') },
+      { title: 'Vínculos & Mídia', el: document.getElementById('editor-step-1') },
+      { title: 'Conteúdo & Segredos', el: document.getElementById('editor-step-2') }
+    ]
+  });
 
   attachWikiLinkAutocomplete(document.getElementById('wiki-content'));
   if (masterMode) {
@@ -999,12 +1116,31 @@ export function openEditorModal(existing = null, prefillTitle = '', prefillOptio
     previewEl.classList.remove('hidden');
   });
 
-  const close = () => modalRoot.innerHTML = '';
+  const close = () => {
+    stepper?.destroy();
+    modalRoot.innerHTML = '';
+  };
   document.getElementById('close-editor').addEventListener('click', close);
   document.getElementById('cancel-editor').addEventListener('click', close);
 
   document.getElementById('wiki-editor-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+
+    const titleInput = document.getElementById('wiki-title');
+    const contentInput = document.getElementById('wiki-content');
+
+    if (!titleInput.value.trim()) {
+      stepper?.goTo(0);
+      setTimeout(() => titleInput.focus(), 60);
+      return;
+    }
+
+    if (!contentInput.value.trim()) {
+      stepper?.goTo(2);
+      setTimeout(() => contentInput.focus(), 60);
+      return;
+    }
+
     const saveBtn = document.getElementById('save-wiki-btn');
     saveBtn.disabled = true;
     saveBtn.innerText = 'Salvando...';
@@ -1021,10 +1157,10 @@ export function openEditorModal(existing = null, prefillTitle = '', prefillOptio
       category: document.getElementById('wiki-cat').value,
       parentId: document.getElementById('wiki-parent-id').value || '',
       subtitle: document.getElementById('wiki-sub').value.trim(),
-      title: document.getElementById('wiki-title').value.trim(),
+      title: titleInput.value.trim(),
       tags: selectedTags,
       imageUrl: currentImage,
-      content: document.getElementById('wiki-content').value.trim(),
+      content: contentInput.value.trim(),
       masterSecret: masterSecretVal,
       secretRevealed: secretRevealedVal,
       updatedAt: serverTimestamp()

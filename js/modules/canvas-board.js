@@ -5,6 +5,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { getWikiEntries, openReaderModal, openEditorModal, attachWikiLinkAutocomplete } from './wiki-cms.js';
 import { isMaster } from './roles-manager.js';
+import { bindMorphMenu, attachGradualBlur } from './transitions.js';
 
 let allBoardCards = [];
 let allBoardFrames = [];
@@ -1342,6 +1343,17 @@ function openBoardCardReaderModal(card) {
     </div>
   `;
 
+  const boardReaderCard = modalRoot.querySelector('.max-h-\\[90vh\\]');
+if (boardReaderCard) {
+  attachGradualBlur(boardReaderCard, {
+    position: 'bottom',
+    height: '3.25rem',
+    strength: 1.3,
+    tint: 'rgba(16, 4, 7, 0.94)',
+    sticky: true
+  });
+}
+
   modalRoot.querySelectorAll('[data-board-wikilink]').forEach(btn => {
     btn.addEventListener('click', () => openReaderModal(btn.dataset.boardWikilink));
   });
@@ -1985,7 +1997,7 @@ export function mountCanvasBoard(container) {
 
   container.innerHTML = `
     <div id="nyx-canvas-wrapper" class="nyx-canvas-wrapper">
-      <!-- Barra de Ferramentas do Quadro -->
+      <!-- Barra de Ferramentas do Quadro (Warm Tooltips) -->
       <div class="px-4 py-3 border-b border-[var(--borda-fina)] bg-[#120407] flex flex-wrap items-center justify-between gap-3">
         <!-- Seletor de Quadros + Criação de Notas e Molduras -->
         <div class="flex flex-wrap items-center gap-2">
@@ -1995,28 +2007,30 @@ export function mountCanvasBoard(container) {
               <option value="default">📌 Quadro Principal</option>
             </select>
 
-            <button type="button" id="btn-new-board" title="Criar novo quadro / caso separado"
+            <button type="button" id="btn-new-board" data-nyx-tip="Criar novo quadro / caso" data-nyx-tip-side="bottom"
               class="px-1.5 py-0.5 rounded bg-[var(--bg-card)] border border-[var(--borda-fina)] text-[11px] text-[var(--dourado)] hover:border-[var(--dourado)]">
               + Quadro
             </button>
 
             <span id="nyx-board-custom-actions" class="hidden inline-flex items-center gap-1 ml-0.5">
-              <button type="button" id="btn-rename-board" title="Renomear este quadro"
+              <button type="button" id="btn-rename-board" data-nyx-tip="Renomear este quadro" data-nyx-tip-side="bottom"
                 class="px-1.5 py-0.5 rounded bg-[var(--bg-card)] border border-[var(--borda-fina)] text-[10px] text-[var(--texto-mutado)] hover:text-white">
                 ✎
               </button>
-              <button type="button" id="btn-delete-board" title="Excluir este quadro"
+              <button type="button" id="btn-delete-board" data-nyx-tip="Excluir este quadro" data-nyx-tip-side="bottom"
                 class="px-1.5 py-0.5 rounded bg-[var(--bg-card)] border border-[var(--borda-fina)] text-[10px] text-red-400 hover:border-red-400">
                 ✕
               </button>
             </span>
           </div>
 
-          <button type="button" id="btn-new-board-card" class="px-3.5 py-1.5 rounded-lg bg-[var(--vinho-escuro)] hover:bg-[var(--vinho)] border border-[var(--dourado)] text-[var(--dourado-claro)] text-xs font-bold shadow">
+          <button type="button" id="btn-new-board-card" data-nyx-tip="Fixar nova pista no mural" data-nyx-tip-side="bottom"
+            class="px-3.5 py-1.5 rounded-lg bg-[var(--vinho-escuro)] hover:bg-[var(--vinho)] border border-[var(--dourado)] text-[var(--dourado-claro)] text-xs font-bold shadow">
             + Nova Anotação
           </button>
 
-          <button type="button" id="btn-new-board-frame" class="px-3 py-1.5 rounded-lg bg-[var(--bg-card)] hover:bg-[#1d070c] border border-[var(--borda-fina)] hover:border-[var(--dourado)] text-[var(--dourado)] text-xs font-semibold">
+          <button type="button" id="btn-new-board-frame" data-nyx-tip="Agrupar pistas em uma moldura" data-nyx-tip-side="bottom"
+            class="px-3 py-1.5 rounded-lg bg-[var(--bg-card)] hover:bg-[#1d070c] border border-[var(--borda-fina)] hover:border-[var(--dourado)] text-[var(--dourado)] text-xs font-semibold">
             ▢ Nova Moldura
           </button>
         </div>
@@ -2024,12 +2038,16 @@ export function mountCanvasBoard(container) {
         <!-- Câmera & Expansão -->
         <div class="flex items-center gap-2">
           <span id="canvas-zoom-label" class="text-[11px] font-mono-code text-[var(--texto-mutado)] px-1">100%</span>
-          <button type="button" id="btn-canvas-zoom-in" title="Aproximar" class="px-2.5 py-1 rounded bg-[var(--bg-card)] border border-[var(--borda-fina)] text-xs text-[var(--dourado-claro)]">+</button>
-          <button type="button" id="btn-canvas-zoom-out" title="Afastar" class="px-2.5 py-1 rounded bg-[var(--bg-card)] border border-[var(--borda-fina)] text-xs text-[var(--dourado-claro)]">−</button>
-          <button type="button" id="btn-canvas-reset" class="px-2.5 py-1 rounded bg-[var(--bg-card)] border border-[var(--borda-fina)] text-xs text-[var(--texto-mutado)] hover:text-white">
+          <button type="button" id="btn-canvas-zoom-in" data-nyx-tip="Aproximar câmera" data-nyx-tip-side="bottom"
+            class="px-2.5 py-1 rounded bg-[var(--bg-card)] border border-[var(--borda-fina)] text-xs text-[var(--dourado-claro)]">+</button>
+          <button type="button" id="btn-canvas-zoom-out" data-nyx-tip="Afastar câmera" data-nyx-tip-side="bottom"
+            class="px-2.5 py-1 rounded bg-[var(--bg-card)] border border-[var(--borda-fina)] text-xs text-[var(--dourado-claro)]">−</button>
+          <button type="button" id="btn-canvas-reset" data-nyx-tip="Resetar posição e zoom" data-nyx-tip-side="bottom"
+            class="px-2.5 py-1 rounded bg-[var(--bg-card)] border border-[var(--borda-fina)] text-xs text-[var(--texto-mutado)] hover:text-white">
             Centralizar
           </button>
-          <button type="button" id="btn-canvas-expand" class="px-3 py-1 rounded bg-[#1d070c] border border-[var(--dourado)] text-xs text-[var(--dourado)] font-semibold">
+          <button type="button" id="btn-canvas-expand" data-nyx-tip="Alternar tela cheia" data-nyx-kbd="Esc" data-nyx-tip-side="bottom"
+            class="px-3 py-1 rounded bg-[#1d070c] border border-[var(--dourado)] text-xs text-[var(--dourado)] font-semibold">
             ⛶ Expandir Visão
           </button>
         </div>
@@ -2042,9 +2060,54 @@ export function mountCanvasBoard(container) {
           <svg id="nyx-canvas-svg" class="nyx-canvas-svg"></svg>
           <div id="nyx-canvas-cards"></div>
         </div>
+
+        <!-- Plus to Menu Morph no Palco -->
+        <div class="nyx-morph-anchor nyx-morph-anchor--stage" aria-label="Ações rápidas do Quadro">
+          <div id="canvas-morph-fab" class="nyx-morph" data-open="false">
+            <div class="nyx-morph-menu">
+              <button type="button" data-canvas-morph="card" class="nyx-morph-item">
+                <span class="text-[var(--dourado)]">📌</span>
+                <span>Nova Anotação</span>
+              </button>
+              <button type="button" data-canvas-morph="frame" class="nyx-morph-item">
+                <span class="text-[var(--dourado)]">▢</span>
+                <span>Nova Moldura</span>
+              </button>
+              <button type="button" data-canvas-morph="board" class="nyx-morph-item">
+                <span class="text-[var(--dourado)]">🗂️</span>
+                <span>Novo Quadro / Caso</span>
+              </button>
+              <button type="button" data-canvas-morph="reset" class="nyx-morph-item">
+                <span class="text-[var(--dourado)]">⌖</span>
+                <span>Centralizar Câmera</span>
+              </button>
+            </div>
+            <button type="button" class="nyx-morph-trigger" aria-expanded="false" aria-label="Menu rápido do quadro" data-nyx-tip="Ações rápidas do quadro">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+                <path d="M12 5v14M5 12h14"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   `;
+
+  const canvasMorph = document.getElementById('canvas-morph-fab');
+  bindMorphMenu(canvasMorph);
+  canvasMorph.addEventListener('pointerdown', e => e.stopPropagation());
+  canvasMorph.querySelectorAll('[data-canvas-morph]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const act = btn.dataset.canvasMorph;
+      if (act === 'card') openBoardCardModal();
+      else if (act === 'frame') openBoardFrameModal();
+      else if (act === 'board') openBoardManagerModal(null);
+      else if (act === 'reset') {
+        camera = { x: 120, y: 80, zoom: 1 };
+        applyCameraTransform();
+      }
+    });
+  });
 
   const stage = document.getElementById('nyx-canvas-stage');
 
